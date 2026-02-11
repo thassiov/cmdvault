@@ -49,6 +49,19 @@ func NewWithPath(commandsDir string) *Loader {
 
 // LoadFile loads commands from a specific YAML file
 func (l *Loader) LoadFile(path string) ([]command.Descriptor, error) {
+	return l.loadFileWithBase(path, "")
+}
+
+// loadFileWithBase loads commands from a YAML file, deriving the category from
+// the file's path relative to baseDir. When baseDir is empty, the category is
+// derived from the filename only (backward-compatible behavior).
+//
+// Examples (baseDir = "/home/user/.config/cmdvault/commands"):
+//
+//	commands/docker.yaml              → category "docker"
+//	commands/grid/health.yaml         → category "grid/health"
+//	commands/grid/opnsense/dnsbl.yaml → category "grid/opnsense/dnsbl"
+func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descriptor, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", path, err)
@@ -59,8 +72,7 @@ func (l *Loader) LoadFile(path string) ([]command.Descriptor, error) {
 		return nil, fmt.Errorf("parse yaml %s: %w", path, err)
 	}
 
-	// Derive category from filename (e.g., "git.yaml" → "git")
-	category := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	category := deriveCategory(path, baseDir)
 
 	// Tag each command with its source file, category, and auto-generate alias if needed
 	for i := range cf.Commands {
@@ -74,6 +86,29 @@ func (l *Loader) LoadFile(path string) ([]command.Descriptor, error) {
 	}
 
 	return cf.Commands, nil
+}
+
+// deriveCategory computes the category from a file path relative to a base directory.
+// If baseDir is empty or the relative path cannot be computed, it falls back to the
+// filename without extension. Directory separators are normalized to forward slashes.
+//
+// Examples:
+//
+//	deriveCategory("/commands/docker.yaml", "/commands")             → "docker"
+//	deriveCategory("/commands/grid/health.yaml", "/commands")        → "grid/health"
+//	deriveCategory("/commands/grid/opnsense/dnsbl.yaml", "/commands") → "grid/opnsense/dnsbl"
+//	deriveCategory("/anywhere/docker.yaml", "")                       → "docker"
+func deriveCategory(path string, baseDir string) string {
+	if baseDir != "" {
+		rel, err := filepath.Rel(baseDir, path)
+		if err == nil {
+			// Strip extension and normalize separators to forward slash
+			rel = strings.TrimSuffix(rel, filepath.Ext(rel))
+			return filepath.ToSlash(rel)
+		}
+	}
+	// Fallback: filename only
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
 // LoadDir loads all YAML files from the commands directory recursively
@@ -103,7 +138,7 @@ func (l *Loader) LoadDirFrom(dir string) ([]command.Descriptor, error) {
 		}
 
 		path := filepath.Join(dir, entry.Name())
-		commands, err := l.LoadFile(path)
+		commands, err := l.loadFileWithBase(path, dir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to load %s: %v\n", path, err)
 			continue
@@ -136,7 +171,7 @@ func (l *Loader) LoadDirRecursive(dir string) ([]command.Descriptor, error) {
 			return nil
 		}
 
-		commands, err := l.LoadFile(path)
+		commands, err := l.loadFileWithBase(path, dir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to load %s: %v\n", path, err)
 			return nil
