@@ -181,34 +181,79 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestLoadMissingName(t *testing.T) {
-	root := t.TempDir()
-	content := []byte(`commands:
+	t.Run("description promoted to name", func(t *testing.T) {
+		root := t.TempDir()
+		content := []byte(`commands:
   - command: echo
     args: ["hello"]
     description: "no name provided"
 `)
-	path := filepath.Join(root, "test.yaml")
-	os.WriteFile(path, content, 0644)
+		path := filepath.Join(root, "test.yaml")
+		os.WriteFile(path, content, 0644)
 
-	loader := NewWithPath(root)
-	commands, err := loader.LoadFile(path)
-	if err != nil {
-		t.Fatalf("LoadFile: %v", err)
-	}
+		loader := NewWithPath(root)
+		commands, err := loader.LoadFile(path)
+		if err != nil {
+			t.Fatalf("LoadFile: %v", err)
+		}
 
-	if len(commands) != 1 {
-		t.Fatalf("expected 1 command, got %d", len(commands))
-	}
+		if len(commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(commands))
+		}
 
-	// Name should be auto-generated from filename
-	if commands[0].Name != "test.yaml#0" {
-		t.Errorf("expected name %q, got %q", "test.yaml#0", commands[0].Name)
-	}
+		// Description should be promoted to name
+		if commands[0].Name != "no name provided" {
+			t.Errorf("expected name %q, got %q", "no name provided", commands[0].Name)
+		}
 
-	// Alias should be derived from generated name
-	if commands[0].Alias != "test.yaml#0" {
-		t.Errorf("expected alias %q, got %q", "test.yaml#0", commands[0].Alias)
-	}
+		// Description should be auto-generated from command+args
+		if commands[0].Description != "echo hello" {
+			t.Errorf("expected description %q, got %q", "echo hello", commands[0].Description)
+		}
+
+		// Alias should be derived from the promoted name
+		if commands[0].Alias != "no-name-provided" {
+			t.Errorf("expected alias %q, got %q", "no-name-provided", commands[0].Alias)
+		}
+	})
+
+	t.Run("no name no description falls back to filename#index", func(t *testing.T) {
+		root := t.TempDir()
+		content := []byte(`commands:
+  - command: echo
+    args: ["hello"]
+  - command: ls
+    args: ["-la"]
+`)
+		path := filepath.Join(root, "test.yaml")
+		os.WriteFile(path, content, 0644)
+
+		loader := NewWithPath(root)
+		commands, err := loader.LoadFile(path)
+		if err != nil {
+			t.Fatalf("LoadFile: %v", err)
+		}
+
+		if len(commands) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(commands))
+		}
+
+		// Both names should be filename#index
+		if commands[0].Name != "test.yaml#0" {
+			t.Errorf("expected name %q, got %q", "test.yaml#0", commands[0].Name)
+		}
+		if commands[1].Name != "test.yaml#1" {
+			t.Errorf("expected name %q, got %q", "test.yaml#1", commands[1].Name)
+		}
+
+		// Descriptions should be auto-generated from command+args
+		if commands[0].Description != "echo hello" {
+			t.Errorf("expected description %q, got %q", "echo hello", commands[0].Description)
+		}
+		if commands[1].Description != "ls -la" {
+			t.Errorf("expected description %q, got %q", "ls -la", commands[1].Description)
+		}
+	})
 }
 
 func TestLoadMissingDescription(t *testing.T) {

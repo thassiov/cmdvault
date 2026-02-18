@@ -87,7 +87,14 @@ func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descri
 
 		// Generate name from filename if missing
 		if cmd.Name == "" {
-			cmd.Name = fmt.Sprintf("%s#%d", filepath.Base(path), i)
+			if cmd.Description != "" {
+				// Promote user-written description to name;
+				// clear description so it gets auto-generated from command+args
+				cmd.Name = cmd.Description
+				cmd.Description = ""
+			} else {
+				cmd.Name = fmt.Sprintf("%s#%d", filepath.Base(path), i)
+			}
 		}
 
 		// Sanitize name and description: collapse newlines/tabs to spaces
