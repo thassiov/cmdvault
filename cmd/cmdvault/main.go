@@ -160,12 +160,17 @@ func main() {
 	// Update the command's args with the processed ones
 	selected.Descriptor.Args = finalArgs
 
-	// Print mode: output the resolved command string and exit
+	// Print mode: output the resolved command string and exit.
+	// When stdout is a TTY (direct invocation), add a trailing newline for clean display.
+	// When captured (e.g. $(cmdvault --print)), omit it so shell widgets work cleanly.
 	if *printMode {
 		if len(selected.Descriptor.Args) > 0 {
 			fmt.Printf("%s %s", selected.Descriptor.Command, shelljoin(selected.Descriptor.Args))
 		} else {
 			fmt.Print(selected.Descriptor.Command)
+		}
+		if term.IsTerminal(int(os.Stdout.Fd())) {
+			fmt.Println()
 		}
 		os.Exit(0)
 	}
