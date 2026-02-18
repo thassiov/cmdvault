@@ -208,7 +208,7 @@ func (l *Loader) Load(filePath string) ([]command.Descriptor, error) {
 		}
 
 		if info.IsDir() {
-			return l.LoadDirFrom(filePath)
+			return l.LoadDirRecursive(filePath)
 		}
 		return l.LoadFile(filePath)
 	}
