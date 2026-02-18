@@ -1,0 +1,51 @@
+name: Process Management
+description: Process monitoring and port management with lsof, ss, and ps
+
+commands:
+  - name: listening ports
+    command: ss
+    args: ["-tlnp"]
+    alias: ports
+    description: Show all listening TCP ports with process info
+
+  - name: who uses port
+    command: lsof
+    args: ["-i", ":{{port}}"]
+    alias: port-check
+    description: Show which process is using a specific port
+
+  - name: process tree
+    command: ps
+    args: ["auxf"]
+    alias: pstree
+    description: Show all processes in a tree format
+
+  - name: top memory
+    command: sh
+    args: ["-c", "ps aux --sort=-%mem | head -20"]
+    alias: mem-hogs
+    description: Show the top 20 processes by memory usage
+
+  - name: top cpu
+    command: sh
+    args: ["-c", "ps aux --sort=-%cpu | head -20"]
+    alias: cpu-hogs
+    description: Show the top 20 processes by CPU usage
+
+  - name: find process
+    command: sh
+    args: ["-c", "ps aux | grep {{pattern}}"]
+    alias: pgrep-full
+    description: Search for a process by name or pattern
+
+  - name: kill by port
+    command: sh
+    args: ["-c", "lsof -ti :{{port}} | xargs kill -9"]
+    alias: port-kill
+    description: Kill whatever process is listening on a specific port
+
+  - name: open files
+    command: lsof
+    args: ["-p", "{{pid}}"]
+    alias: proc-files
+    description: List all files opened by a specific process ID

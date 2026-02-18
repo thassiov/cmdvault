@@ -1,0 +1,68 @@
+name: File Operations
+description: File archiving, syncing, searching, and inspection with tar, rsync, rg, bat, and find
+
+commands:
+  # Tar
+  - name: tar create
+    command: tar
+    args: ["-czf", "{{archive}}.tar.gz", "{{path}}"]
+    alias: tar-pack
+    description: Create a gzip-compressed tar archive
+
+  - name: tar extract
+    command: tar
+    args: ["-xzf", "{{archive}}"]
+    alias: tar-unpack
+    description: Extract a gzip-compressed tar archive
+
+  - name: tar list
+    command: tar
+    args: ["-tzf", "{{archive}}"]
+    alias: tar-list
+    description: List contents of a tar archive without extracting
+
+  # Rsync
+  - name: rsync copy
+    command: rsync
+    args: ["-avh", "--progress", "{{source}}", "{{destination}}"]
+    alias: sync
+    description: Sync files with archive mode, verbose output, and progress
+
+  - name: rsync dry run
+    command: rsync
+    args: ["-avhn", "{{source}}", "{{destination}}"]
+    alias: sync-dry
+    description: Preview what rsync would transfer without making changes
+
+  # Search
+  - name: ripgrep search
+    command: rg
+    args: ["{{pattern}}"]
+    alias: search
+    description: Recursively search file contents for a pattern
+
+  - name: ripgrep type filter
+    command: rg
+    args: ["--type={{filetype}}", "{{pattern}}"]
+    alias: search-type
+    description: Search for a pattern only in files of a specific type (e.g. py, js, go)
+
+  # View
+  - name: bat view
+    command: bat
+    args: ["{{file}}"]
+    alias: view
+    description: View a file with syntax highlighting and line numbers
+
+  # Find
+  - name: find large files
+    command: find
+    args: ["{{path}}", "-type", "f", "-size", "+{{size}}", "-exec", "ls", "-lh", "{}", "+"]
+    alias: find-big
+    description: "Find files larger than a given size (e.g. 100M, 1G)"
+
+  - name: disk usage
+    command: sh
+    args: ["-c", "du -sh {{path}}/*"]
+    alias: usage
+    description: Show disk usage summary for each item in a directory

@@ -1,0 +1,47 @@
+name: Cryptography
+description: Encryption, hashing, and certificate tools with openssl, gpg, sha256sum, and md5sum
+
+commands:
+  # Random generation
+  - name: generate random password
+    command: openssl
+    args: ["rand", "-base64", "{{length}}"]
+    description: "Generate a random base64 password (length in bytes: 32 = 44 chars, 48 = 64 chars)"
+
+  - name: generate random hex
+    command: openssl
+    args: ["rand", "-hex", "{{length}}"]
+    description: Generate a random hex string (length in bytes, output is 2x chars)
+
+  # Certificates
+  - name: check certificate
+    command: openssl
+    args: ["s_client", "-connect", "{{host}}:443", "-brief"]
+    description: Show TLS handshake summary and certificate chain for a host
+
+  - name: certificate expiry
+    command: sh
+    args: ["-c", "echo | openssl s_client -connect {{host}}:443 -servername {{host}} 2>/dev/null | openssl x509 -noout -dates"]
+    description: Show the notBefore and notAfter dates of a remote TLS certificate
+
+  # GPG
+  - name: encrypt file
+    command: gpg
+    args: ["-c", "{{file}}"]
+    description: Encrypt a file with symmetric AES (prompts for passphrase)
+
+  - name: decrypt file
+    command: gpg
+    args: ["-d", "{{file}}"]
+    description: Decrypt a GPG-encrypted file to stdout
+
+  # Hashing
+  - name: hash file sha256
+    command: sha256sum
+    args: ["{{file}}"]
+    description: Compute the SHA-256 hash of a file
+
+  - name: hash file md5
+    command: md5sum
+    args: ["{{file}}"]
+    description: Compute the MD5 hash of a file (not for security, use for checksums only)

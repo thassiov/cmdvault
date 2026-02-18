@@ -1,0 +1,83 @@
+name: Node.js Packages
+description: Package management with npm and pnpm
+
+commands:
+  # npm
+  - name: npm run script
+    command: npm
+    args: ["run", "{{script}}"]
+    description: >
+      Run a script defined in package.json. Select from available scripts
+      detected in the current directory's package.json.
+    placeholders:
+      script:
+        source: "jq -r '.scripts // {} | keys[]' package.json 2>/dev/null"
+
+  - name: npm install deps
+    command: npm
+    args: ["install"]
+    description: Install all dependencies from package.json and package-lock.json
+
+  - name: npm install package
+    command: npm
+    args: ["install", "{{package}}"]
+    description: >
+      Install a package and add it to dependencies. Use the package name
+      (e.g., express) or name@version (e.g., express@4.18.2).
+
+  - name: npm uninstall package
+    command: npm
+    args: ["uninstall", "{{package}}"]
+    description: >
+      Uninstall a package and remove it from dependencies. Select from
+      packages listed in the current project's package.json.
+    placeholders:
+      package:
+        source: "jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null"
+
+  - name: npm outdated
+    command: npm
+    args: ["outdated"]
+    description: >
+      Check for outdated packages. Shows current, wanted (matching semver range),
+      and latest versions for all dependencies.
+
+  - name: npm audit
+    command: npm
+    args: ["audit"]
+    description: >
+      Scan dependencies for known security vulnerabilities. Reports severity
+      levels and suggests fixes. Run 'npm audit fix' to auto-fix compatible
+      updates.
+
+  - name: npm list global
+    command: npm
+    args: ["list", "-g", "--depth=0"]
+    description: List globally installed npm packages (top-level only)
+
+  # pnpm
+  - name: pnpm run script
+    command: pnpm
+    args: ["run", "{{script}}"]
+    description: >
+      Run a script defined in package.json using pnpm. Select from available
+      scripts detected in the current directory's package.json.
+    placeholders:
+      script:
+        source: "jq -r '.scripts // {} | keys[]' package.json 2>/dev/null"
+
+  - name: pnpm install deps
+    command: pnpm
+    args: ["install"]
+    description: >
+      Install all dependencies using pnpm. Uses a content-addressable store
+      for faster installs and reduced disk usage compared to npm.
+
+  # npx
+  - name: npx run
+    command: npx
+    args: ["{{package}}"]
+    description: >
+      Execute a package binary without installing it globally. Downloads the
+      package temporarily if not already installed. Useful for one-off commands
+      like 'npx create-react-app my-app' or 'npx tsc --init'.

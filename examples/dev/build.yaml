@@ -1,0 +1,57 @@
+name: Build Tools
+description: Compilation and build system commands for gcc, make, cmake, and meson
+
+commands:
+  # GCC
+  - name: gcc compile
+    command: gcc
+    args: ["-o", "{{output}}", "{{source}}"]
+    description: Compile a single C file
+
+  - name: gcc compile with warnings
+    command: gcc
+    args: ["-Wall", "-Wextra", "-Werror", "-o", "{{output}}", "{{source}}"]
+    description: Compile a C file with strict warning flags
+
+  - name: gcc shared library
+    command: gcc
+    args: ["-shared", "-fPIC", "-o", "{{output}}", "{{source}}"]
+    description: Compile a shared library (.so) from source
+
+  - name: g++ compile
+    command: g++
+    args: ["-std=c++17", "-o", "{{output}}", "{{source}}"]
+    description: Compile a C++ file with C++17 standard
+
+  # Make
+  - name: make build
+    command: make
+    args: []
+    description: Run the default make target
+
+  - name: make target
+    command: make
+    args: ["{{target}}"]
+    description: Run a specific make target
+
+  - name: make clean
+    command: make
+    args: ["clean"]
+    description: Clean build artifacts
+
+  # CMake
+  - name: cmake configure
+    command: cmake
+    args: ["-B", "build", "-DCMAKE_BUILD_TYPE={{build_type}}"]
+    description: "Configure a CMake project (build_type: Debug, Release, RelWithDebInfo)"
+
+  - name: cmake build
+    command: cmake
+    args: ["--build", "build"]
+    description: Build a CMake project from the build directory
+
+  # Meson
+  - name: meson setup
+    command: meson
+    args: ["setup", "build"]
+    description: Initialize a Meson build directory

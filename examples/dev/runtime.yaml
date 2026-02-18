@@ -1,0 +1,84 @@
+name: Runtime Managers
+description: Language runtime managers and toolchains for mise, python, node, go, and rust
+
+commands:
+  # Mise
+  - name: mise list installed
+    command: mise
+    args: ["list"]
+    description: List all installed tool versions managed by mise
+
+  - name: mise install tool
+    command: mise
+    args: ["install", "{{plugin}}@latest"]
+    description: Install the latest version of a tool via mise
+    placeholders:
+      plugin:
+        source: "mise plugins ls"
+
+  - name: mise use
+    command: mise
+    args: ["use", "{{plugin}}@latest"]
+    description: Set a tool version for the current project
+    placeholders:
+      plugin:
+        source: "mise plugins ls"
+
+  - name: mise current
+    command: mise
+    args: ["current"]
+    description: Show currently active tool versions
+
+  # Python
+  - name: python venv create
+    command: python3
+    args: ["-m", "venv", "{{name}}"]
+    description: Create a new Python virtual environment
+
+  - name: python venv activate info
+    command: sh
+    args: ["-c", "echo 'Run: source {{name}}/bin/activate'"]
+    description: "Show activation command (cmdvault cannot source into your shell)"
+
+  - name: pip install
+    command: pip
+    args: ["install", "{{package}}"]
+    description: Install a Python package with pip
+
+  - name: pip freeze
+    command: pip
+    args: ["freeze"]
+    description: List all installed Python packages and versions
+
+  # Node
+  - name: node run
+    command: node
+    args: ["{{file}}"]
+    description: Run a JavaScript file with Node.js
+
+  # Go
+  - name: go run
+    command: go
+    args: ["run", "{{file}}"]
+    description: Compile and run a Go source file
+
+  - name: go test
+    command: go
+    args: ["test", "./..."]
+    description: Run all tests in the current Go module
+
+  # Rust
+  - name: cargo build
+    command: cargo
+    args: ["build"]
+    description: Build the current Rust project
+
+  - name: cargo test
+    command: cargo
+    args: ["test"]
+    description: Run all tests in the current Rust project
+
+  - name: cargo run
+    command: cargo
+    args: ["run"]
+    description: Build and run the current Rust project
