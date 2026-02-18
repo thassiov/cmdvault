@@ -424,3 +424,100 @@ func TestLoadEmptyDescription(t *testing.T) {
 		t.Errorf("missing field desc: got %q, want %q", commands[1].Description, "echo world")
 	}
 }
+
+func TestLoadPlaceholderConfig(t *testing.T) {
+	t.Run("type and description fields", func(t *testing.T) {
+		root := t.TempDir()
+		content := []byte(`commands:
+  - name: strip metadata
+    command: ffmpeg
+    args: ["-i", "{{input}}", "-map_metadata", "-1", "-c", "copy", "{{output}}"]
+    placeholders:
+      input:
+        type: file
+        description: source media file
+      output:
+        description: output file path
+        default: "{{input}}"
+`)
+		path := filepath.Join(root, "test.yaml")
+		os.WriteFile(path, content, 0644)
+
+		loader := NewWithPath(root)
+		commands, err := loader.LoadFile(path)
+		if err != nil {
+			t.Fatalf("LoadFile: %v", err)
+		}
+
+		if len(commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(commands))
+		}
+
+		ph := commands[0].Placeholders
+		if ph == nil {
+			t.Fatal("expected placeholders, got nil")
+		}
+
+		// Input placeholder: type=file, description set, no default
+		input, ok := ph["input"]
+		if !ok {
+			t.Fatal("expected 'input' placeholder")
+		}
+		if input.Type != "file" {
+			t.Errorf("input.Type = %q, want %q", input.Type, "file")
+		}
+		if input.Description != "source media file" {
+			t.Errorf("input.Description = %q, want %q", input.Description, "source media file")
+		}
+		if input.Default != "" {
+			t.Errorf("input.Default = %q, want empty", input.Default)
+		}
+
+		// Output placeholder: no type, description set, default references input
+		output, ok := ph["output"]
+		if !ok {
+			t.Fatal("expected 'output' placeholder")
+		}
+		if output.Type != "" {
+			t.Errorf("output.Type = %q, want empty", output.Type)
+		}
+		if output.Description != "output file path" {
+			t.Errorf("output.Description = %q, want %q", output.Description, "output file path")
+		}
+		if output.Default != "{{input}}" {
+			t.Errorf("output.Default = %q, want %q", output.Default, "{{input}}")
+		}
+	})
+
+	t.Run("source field still works", func(t *testing.T) {
+		root := t.TempDir()
+		content := []byte(`commands:
+  - name: attach session
+    command: tmux
+    args: ["attach", "-t", "{{session}}"]
+    placeholders:
+      session:
+        source: "tmux list-sessions -F '#S' 2>/dev/null"
+`)
+		path := filepath.Join(root, "test.yaml")
+		os.WriteFile(path, content, 0644)
+
+		loader := NewWithPath(root)
+		commands, err := loader.LoadFile(path)
+		if err != nil {
+			t.Fatalf("LoadFile: %v", err)
+		}
+
+		ph := commands[0].Placeholders
+		session, ok := ph["session"]
+		if !ok {
+			t.Fatal("expected 'session' placeholder")
+		}
+		if session.Source != "tmux list-sessions -F '#S' 2>/dev/null" {
+			t.Errorf("session.Source = %q, unexpected", session.Source)
+		}
+		if session.Type != "" {
+			t.Errorf("session.Type = %q, want empty", session.Type)
+		}
+	})
+}

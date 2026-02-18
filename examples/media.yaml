@@ -8,6 +8,13 @@ commands:
   - '{{input}}'
   - '{{output}}'
   description: 'Convert between video formats. The output format is determined by the file extension. Common formats: .mp4 (H.264), .mkv (Matroska), .webm (VP9), .avi (legacy), .mov (QuickTime). Example: input.mkv -> output.mp4'
+  placeholders:
+    input:
+      type: file
+      description: source video file
+    output:
+      description: output file (extension determines format)
+      default: '{{input}}'
 - name: scale video 720p
   command: ffmpeg
   args:
@@ -86,6 +93,13 @@ commands:
   - copy
   - '{{output}}'
   description: Remove all metadata (title, author, GPS, creation date, etc.) from a media file while copying streams unchanged. Useful for privacy before sharing files.
+  placeholders:
+    input:
+      type: file
+      description: source media file
+    output:
+      description: output file path
+      default: '{{input}}'
 - name: merge audio video
   command: ffmpeg
   args:
@@ -97,6 +111,16 @@ commands:
   - copy
   - '{{output}}'
   description: Combine separate video and audio files into a single container without re-encoding. Both streams are copied as-is. Make sure the formats are compatible with the output container.
+  placeholders:
+    video:
+      type: file
+      description: video file
+    audio:
+      type: file
+      description: audio file
+    output:
+      description: output file path
+      default: '{{video}}'
 - name: extract frames
   command: ffmpeg
   args:
@@ -117,6 +141,10 @@ commands:
   - -show_streams
   - '{{input}}'
   description: Display detailed media file information in JSON format including codec, resolution, bitrate, duration, frame rate, and stream metadata. Useful for inspecting files before processing.
+  placeholders:
+    input:
+      type: file
+      description: media file to inspect
 - name: download video
   command: yt-dlp
   args:

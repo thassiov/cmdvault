@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -144,10 +145,11 @@ func main() {
 			var config *command.PlaceholderConfig
 			if selected.Descriptor.Placeholders != nil {
 				if cfg, exists := selected.Descriptor.Placeholders[name]; exists {
-					config = &cfg
+					cfgCopy := cfg // copy so we can mutate Default without affecting original
+					config = &cfgCopy
 				}
 			}
-			values[name] = getPlaceholderValue(name, config)
+			values[name] = getPlaceholderValue(name, config, values)
 		}
 	}
 
@@ -272,11 +274,23 @@ func fillPlaceholders(args []string, values map[string]string) []string {
 }
 
 // promptForValue prompts the user to enter a value for the placeholder
-func promptForValue(name string) string {
+func promptForValue(name string, config *command.PlaceholderConfig) string {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Fprintf(os.Stderr, "%s: ", name)
+	prompt := name
+	if config != nil && config.Description != "" {
+		prompt = fmt.Sprintf("%s (%s)", name, config.Description)
+	}
+	if config != nil && config.Default != "" {
+		fmt.Fprintf(os.Stderr, "%s [%s]: ", prompt, config.Default)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s: ", prompt)
+	}
 	value, _ := reader.ReadString('\n')
-	return strings.TrimSpace(value)
+	value = strings.TrimSpace(value)
+	if value == "" && config != nil && config.Default != "" {
+		return config.Default
+	}
+	return value
 }
 
 // selectFromSource runs a source command and pipes output to fzf for selection
@@ -293,6 +307,78 @@ func selectFromSource(name, source string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(output)), nil
+}
+
+// selectFile launches an fzf file picker with path-aware root switching.
+// When the query starts with "/" it searches from root; with "~" from $HOME;
+// otherwise from the current directory.
+func selectFile(name string, config *command.PlaceholderConfig) (string, error) {
+	prompt := name
+	if config != nil && config.Description != "" {
+		prompt = fmt.Sprintf("%s (%s)", name, config.Description)
+	}
+
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		home = "/tmp"
+	}
+
+	// Shell script that picks the find root based on the fzf query prefix.
+	// {q} is replaced by fzf with the current query string.
+	// For / and ~, we limit depth to keep it fast; cwd gets unlimited depth.
+	finderScript := fmt.Sprintf(`
+q={q}
+if [ "${q#/}" != "$q" ]; then
+  find / -maxdepth 6 -type f -not -path '*/.git/*' 2>/dev/null | head -50000
+elif [ "${q#\~}" != "$q" ]; then
+  find %s -maxdepth 6 -type f -not -path '*/.git/*' 2>/dev/null | head -50000
+else
+  find . -type f -not -path '*/.git/*' 2>/dev/null | head -50000
+fi
+`, shellescape(home))
+
+	// Build the fzf command.
+	// --print-query is NOT used; we just want the selected line.
+	// --bind start:reload runs the finder immediately.
+	// --bind change:reload re-runs when the user types (to switch roots).
+	fzfArgs := []string{
+		"--height=~100%",
+		"--layout=reverse",
+		"--border",
+		"--cycle",
+		"--scheme=path",
+		"--prompt=" + prompt + "> ",
+		"--bind", "start:reload:" + strings.TrimSpace(finderScript),
+		"--bind", "change:reload:" + strings.TrimSpace(finderScript),
+	}
+
+	// Pre-fill with default value if set
+	if config != nil && config.Default != "" {
+		fzfArgs = append(fzfArgs, "--query="+config.Default)
+	}
+
+	cmd := exec.Command("fzf", fzfArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	selected := strings.TrimSpace(string(output))
+
+	// Expand ~ prefix if present in the selection (shouldn't happen with find, but safety)
+	if strings.HasPrefix(selected, "~/") {
+		selected = filepath.Join(home, selected[2:])
+	}
+
+	return selected, nil
+}
+
+// shellescape wraps a string in single quotes for safe shell embedding
+func shellescape(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // shelljoin combines args into a shell-safe string, quoting args that need it
@@ -323,16 +409,49 @@ func needsQuoting(s string) bool {
 	return false
 }
 
-// getPlaceholderValue gets a value for a placeholder, using source if available
-func getPlaceholderValue(name string, config *command.PlaceholderConfig) string {
-	if config != nil && config.Source != "" {
-		value, err := selectFromSource(name, config.Source)
+// getPlaceholderValue gets a value for a placeholder, using source or file picker if configured
+func getPlaceholderValue(name string, config *command.PlaceholderConfig, resolved map[string]string) string {
+	// Apply default template: {{other_placeholder}} references in default are replaced
+	// with already-resolved values (e.g., output defaulting to input's path)
+	if config != nil && config.Default != "" {
+		config.Default = expandDefaultTemplate(config.Default, resolved)
+	}
+
+	// type: file → file picker
+	if config != nil && config.Type == "file" {
+		value, err := selectFile(name, config)
 		if err != nil {
-			// Fallback to manual prompt if fzf fails
 			fmt.Fprintf(os.Stderr, "Selection cancelled, enter manually.\n")
-			return promptForValue(name)
+			return promptForValue(name, config)
 		}
 		return value
 	}
-	return promptForValue(name)
+
+	// source → fzf selection from command output
+	if config != nil && config.Source != "" {
+		value, err := selectFromSource(name, config.Source)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Selection cancelled, enter manually.\n")
+			return promptForValue(name, config)
+		}
+		return value
+	}
+
+	// default → plain text prompt
+	return promptForValue(name, config)
+}
+
+// expandDefaultTemplate replaces {{name}} references in a default value
+// with already-resolved placeholder values. This allows e.g.:
+//
+//	output:
+//	  default: "{{input}}"
+func expandDefaultTemplate(tmpl string, resolved map[string]string) string {
+	return placeholderRegex.ReplaceAllStringFunc(tmpl, func(match string) string {
+		ref := placeholderRegex.FindStringSubmatch(match)[1]
+		if val, ok := resolved[ref]; ok {
+			return val
+		}
+		return match
+	})
 }

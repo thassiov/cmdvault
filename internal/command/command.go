@@ -30,7 +30,10 @@ type Output struct {
 
 // PlaceholderConfig defines options for a placeholder
 type PlaceholderConfig struct {
-	Source string `json:"source,omitempty" yaml:"source,omitempty"` // command to run for options
+	Source      string `json:"source,omitempty" yaml:"source,omitempty"`           // command to run for options
+	Type        string `json:"type,omitempty" yaml:"type,omitempty"`               // "file" for file picker, "" for default
+	Description string `json:"description,omitempty" yaml:"description,omitempty"` // shown in prompt to explain what's expected
+	Default     string `json:"default,omitempty" yaml:"default,omitempty"`         // pre-filled default value
 }
 
 // Descriptor defines a command from config
@@ -47,13 +50,13 @@ type Descriptor struct {
 
 // Command wraps a process with lifecycle management
 type Command struct {
-	ID          string
-	Descriptor  Descriptor
-	Status      Status
-	StartedAt   *time.Time
-	FinishedAt  *time.Time
-	ExitCode    *int
-	Output      chan Output // consumers read from this
+	ID         string
+	Descriptor Descriptor
+	Status     Status
+	StartedAt  *time.Time
+	FinishedAt *time.Time
+	ExitCode   *int
+	Output     chan Output // consumers read from this
 
 	mu     sync.RWMutex
 	cmd    *exec.Cmd
