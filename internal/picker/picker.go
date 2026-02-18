@@ -57,7 +57,7 @@ func hasFzf() bool {
 
 func pickWithFzf(commands []*command.Command) (*command.Command, error) {
 	fzf := exec.Command("fzf",
-		"--height=40%",
+		"--height=~100%",
 		"--layout=reverse",
 		"--border",
 		"--ansi",
