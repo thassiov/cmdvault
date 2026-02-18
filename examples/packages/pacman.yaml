@@ -1,88 +1,76 @@
 name: Arch Linux Packages
 description: Package management with pacman and yay (AUR helper)
-
 commands:
-  # pacman - Official Repositories
-  - name: update system
-    command: pacman
-    args: ["-Syu"]
-    description: Synchronize package databases and upgrade all installed packages
-
-  - name: install package
-    command: pacman
-    args: ["-S", "{{package}}"]
-    description: Install a package from the official repositories
-
-  - name: remove package
-    command: pacman
-    args: ["-Rns", "{{package}}"]
-    description: >
-      Remove a package along with its dependencies not required by other packages
-      (-s) and configuration files (-n). Select from installed packages.
-    placeholders:
-      package:
-        source: "pacman -Qq"
-
-  - name: search package
-    command: pacman
-    args: ["-Ss", "{{query}}"]
-    description: Search for a package in the official repositories by name or description
-
-  - name: package info
-    command: pacman
-    args: ["-Qi", "{{package}}"]
-    description: >
-      Show detailed information about an installed package including version,
-      dependencies, install size, and install date.
-    placeholders:
-      package:
-        source: "pacman -Qq"
-
-  - name: list installed
-    command: pacman
-    args: ["-Qqe"]
-    description: >
-      List all explicitly installed packages (excluding dependencies).
-      Use -Qq for all installed packages including dependencies.
-
-  - name: list orphans
-    command: pacman
-    args: ["-Qqdt"]
-    description: >
-      List orphaned packages — dependencies that were installed automatically
-      and are no longer required by any installed package.
-
-  - name: remove orphans
-    command: sh
-    args: ["-c", "pacman -Qqdt | pacman -Rns -"]
-    description: >
-      Remove all orphaned packages. Pipes the list of orphans into pacman -Rns
-      to remove them with their configs. Uses sh -c because the pipe is needed
-      for chaining. Safe to run if there are no orphans (exits cleanly).
-
-  - name: list AUR packages
-    command: pacman
-    args: ["-Qqm"]
-    description: >
-      List all foreign (AUR/manually installed) packages — packages not found
-      in the official sync databases.
-
-  # yay - AUR Helper
-  - name: yay update
-    command: yay
-    args: ["-Syu"]
-    description: >
-      Update all packages including AUR. Combines official repo updates and
-      AUR package rebuilds in a single operation.
-
-  - name: yay search
-    command: yay
-    args: ["-Ss", "{{query}}"]
-    description: Search for packages in both official repositories and the AUR
-
-  - name: yay install
-    command: yay
-    args: ["-S", "{{package}}"]
-    description: >
-      Install a package from official repos or AUR. yay handles building and
-      installing AUR packages automatically, including dependency resolution.
+- name: update system
+  command: pacman
+  args:
+  - -Syu
+  description: Synchronize package databases and upgrade all installed packages
+- name: install package
+  command: pacman
+  args:
+  - -S
+  - '{{package}}'
+  description: Install a package from the official repositories
+- name: remove package
+  command: pacman
+  args:
+  - -Rns
+  - '{{package}}'
+  description: Remove a package along with its dependencies not required by other packages (-s) and configuration files (-n). Select from installed packages.
+  placeholders:
+    package:
+      source: pacman -Qq
+- name: search package
+  command: pacman
+  args:
+  - -Ss
+  - '{{query}}'
+  description: Search for a package in the official repositories by name or description
+- name: package info
+  command: pacman
+  args:
+  - -Qi
+  - '{{package}}'
+  description: Show detailed information about an installed package including version, dependencies, install size, and install date.
+  placeholders:
+    package:
+      source: pacman -Qq
+- name: list installed
+  command: pacman
+  args:
+  - -Qqe
+  description: List all explicitly installed packages (excluding dependencies). Use -Qq for all installed packages including dependencies.
+- name: list orphans
+  command: pacman
+  args:
+  - -Qqdt
+  description: List orphaned packages — dependencies that were installed automatically and are no longer required by any installed package.
+- name: remove orphans
+  command: sh
+  args:
+  - -c
+  - pacman -Qqdt | pacman -Rns -
+  description: Remove all orphaned packages. Pipes the list of orphans into pacman -Rns to remove them with their configs. Uses sh -c because the pipe is needed for chaining. Safe to run if there are no orphans (exits cleanly).
+- name: list AUR packages
+  command: pacman
+  args:
+  - -Qqm
+  description: List all foreign (AUR/manually installed) packages — packages not found in the official sync databases.
+- name: yay update
+  command: yay
+  args:
+  - -Syu
+  description: Update all packages including AUR. Combines official repo updates and AUR package rebuilds in a single operation.
+- name: yay search
+  command: yay
+  args:
+  - -Ss
+  - '{{query}}'
+  description: Search for packages in both official repositories and the AUR
+- name: yay install
+  command: yay
+  args:
+  - -S
+  - '{{package}}'
+  description: Install a package from official repos or AUR. yay handles building and installing AUR packages automatically, including dependency resolution.
