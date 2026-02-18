@@ -28,6 +28,7 @@ func main() {
 	filePath := flag.String("f", "", "path to command file or directory")
 	simple := flag.Bool("simple", false, "use simple numbered list instead of fuzzy finder")
 	listAliases := flag.Bool("list-aliases", false, "list all command aliases (for shell completion)")
+	printMode := flag.Bool("print", false, "print the resolved command instead of executing it")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -157,6 +158,16 @@ func main() {
 	// Update the command's args with the processed ones
 	selected.Descriptor.Args = finalArgs
 
+	// Print mode: output the resolved command string and exit
+	if *printMode {
+		if len(selected.Descriptor.Args) > 0 {
+			fmt.Printf("%s %s", selected.Descriptor.Command, shelljoin(selected.Descriptor.Args))
+		} else {
+			fmt.Print(selected.Descriptor.Command)
+		}
+		os.Exit(0)
+	}
+
 	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
 	if isTTY {
@@ -282,6 +293,34 @@ func selectFromSource(name, source string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(output)), nil
+}
+
+// shelljoin combines args into a shell-safe string, quoting args that need it
+func shelljoin(args []string) string {
+	var parts []string
+	for _, arg := range args {
+		if arg == "" {
+			parts = append(parts, "''")
+		} else if needsQuoting(arg) {
+			// Use single quotes, escaping any single quotes in the value
+			escaped := strings.ReplaceAll(arg, "'", "'\\''")
+			parts = append(parts, "'"+escaped+"'")
+		} else {
+			parts = append(parts, arg)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// needsQuoting returns true if a string contains characters that need shell quoting
+func needsQuoting(s string) bool {
+	for _, c := range s {
+		switch c {
+		case ' ', '\t', '\n', '"', '\'', '\\', '`', '$', '!', '&', '|', ';', '(', ')', '<', '>', '*', '?', '[', ']', '#', '~', '{', '}', '^':
+			return true
+		}
+	}
+	return false
 }
 
 // getPlaceholderValue gets a value for a placeholder, using source if available

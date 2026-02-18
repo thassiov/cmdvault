@@ -26,7 +26,12 @@ complete -F _cmdvault_completions cmdvault
 # ============================================================================
 
 cmdvault-widget() {
-    cmdvault
+    local result
+    result=$(cmdvault --print 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        READLINE_LINE="${READLINE_LINE:0:$READLINE_POINT}${result}${READLINE_LINE:$READLINE_POINT}"
+        READLINE_POINT=$(( READLINE_POINT + ${#result} ))
+    fi
 }
 
 bind -x '"\C-f": cmdvault-widget'

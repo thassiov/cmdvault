@@ -13,12 +13,12 @@
 - [x] Keybinding support (Ctrl+F to launch picker via ZLE widget / bash bind)
 - [x] Execution history logging (`~/.config/cmdvault/history.jsonl`)
 - [x] `--version` flag
+- [x] `--print` flag (output resolved command instead of running it)
+- [x] Cursor insertion mode (Ctrl+F inserts at cursor via `--print` + ZLE/readline)
 
 ## Planned
 
 ### Shell Integration
-- [ ] Add `--print` flag to output command instead of running it
-- [ ] Add `--insert` flag for cursor insertion mode
 - [ ] Add `--copy` flag to copy command to clipboard
 - [ ] Support leader key sequences (e.g., Ctrl+X then f)
 - [ ] Fish integration (`shell/cmdvault.fish`)
