@@ -21,11 +21,20 @@ import (
 	"github.com/thassiov/cmdvault/internal/picker"
 )
 
+// Version is set at build time via -ldflags "-X main.Version=..."
+var Version = "dev"
+
 func main() {
 	filePath := flag.String("f", "", "path to command file or directory")
 	simple := flag.Bool("simple", false, "use simple numbered list instead of fuzzy finder")
 	listAliases := flag.Bool("list-aliases", false, "list all command aliases (for shell completion)")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("cmdvault %s\n", Version)
+		os.Exit(0)
+	}
 
 	l, err := loader.New()
 	if err != nil {

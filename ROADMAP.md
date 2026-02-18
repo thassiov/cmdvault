@@ -3,6 +3,7 @@
 ## Completed
 
 - [x] Command groups/categories (derived from filename, searchable in fzf)
+- [x] Nested directory categories (`grid/opnsense/dnsbl.yaml` → category `[grid/opnsense/dnsbl]`)
 - [x] Color-coded picker display (category, name, description)
 - [x] Pipeable output (clean stdout when piped, no decorative text)
 - [x] Configurable aliases (`cmdvault my-alias` runs command directly, auto-generated from name)
@@ -10,6 +11,8 @@
 - [x] Dynamic placeholder sources (fzf selection from command output)
 - [x] Shell completion scripts (bash and zsh, via `--list-aliases`)
 - [x] Keybinding support (Ctrl+F to launch picker via ZLE widget / bash bind)
+- [x] Execution history logging (`~/.config/cmdvault/history.jsonl`)
+- [x] `--version` flag
 
 ## Planned
 
@@ -23,7 +26,6 @@
 ### Commands
 - [ ] Import commands/aliases from shell config files (bashrc, zshrc, etc.)
 - [ ] Inline command saving (`cmdvault save ls -la` → prompts for name/description)
-- [ ] Command history tracking
 - [ ] Favorite/pinned commands
 - [ ] Sudo handling (detect/prompt for sudo, cache credentials)
 
