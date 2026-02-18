@@ -106,3 +106,276 @@ func writeTestYAML(t *testing.T, path string, name string) {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }
+
+func TestSanitize(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no change needed",
+			input:    "a normal string",
+			expected: "a normal string",
+		},
+		{
+			name:     "newline collapsed",
+			input:    "line one\nline two",
+			expected: "line one line two",
+		},
+		{
+			name:     "multiple newlines",
+			input:    "one\ntwo\nthree\nfour",
+			expected: "one two three four",
+		},
+		{
+			name:     "carriage return and newline",
+			input:    "line one\r\nline two",
+			expected: "line one line two",
+		},
+		{
+			name:     "tabs collapsed",
+			input:    "col1\tcol2\tcol3",
+			expected: "col1 col2 col3",
+		},
+		{
+			name:     "multiple spaces collapsed",
+			input:    "too   many    spaces",
+			expected: "too many spaces",
+		},
+		{
+			name:     "leading and trailing whitespace trimmed",
+			input:    "  padded  ",
+			expected: "padded",
+		},
+		{
+			name:     "trailing newline (YAML folded/literal block)",
+			input:    "description from yaml block\n",
+			expected: "description from yaml block",
+		},
+		{
+			name:     "mixed whitespace chaos",
+			input:    "\n\tfoo\n  bar \t baz\n",
+			expected: "foo bar baz",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "only whitespace",
+			input:    "  \n\t\n  ",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitize(tt.input)
+			if got != tt.expected {
+				t.Errorf("sanitize(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLoadMissingName(t *testing.T) {
+	root := t.TempDir()
+	content := []byte(`commands:
+  - command: echo
+    args: ["hello"]
+    description: "no name provided"
+`)
+	path := filepath.Join(root, "test.yaml")
+	os.WriteFile(path, content, 0644)
+
+	loader := NewWithPath(root)
+	commands, err := loader.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(commands) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(commands))
+	}
+
+	// Name should be auto-generated from filename
+	if commands[0].Name != "test.yaml#0" {
+		t.Errorf("expected name %q, got %q", "test.yaml#0", commands[0].Name)
+	}
+
+	// Alias should be derived from generated name
+	if commands[0].Alias != "test.yaml#0" {
+		t.Errorf("expected alias %q, got %q", "test.yaml#0", commands[0].Alias)
+	}
+}
+
+func TestLoadMissingDescription(t *testing.T) {
+	root := t.TempDir()
+	content := []byte(`commands:
+  - name: "no desc"
+    command: echo
+    args: ["hello", "world"]
+
+  - name: "no desc no args"
+    command: ls
+`)
+	path := filepath.Join(root, "test.yaml")
+	os.WriteFile(path, content, 0644)
+
+	loader := NewWithPath(root)
+	commands, err := loader.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(commands))
+	}
+
+	// Description should be generated from command + args
+	if commands[0].Description != "echo hello world" {
+		t.Errorf("expected description %q, got %q", "echo hello world", commands[0].Description)
+	}
+
+	// No args: description is just the command
+	if commands[1].Description != "ls" {
+		t.Errorf("expected description %q, got %q", "ls", commands[1].Description)
+	}
+}
+
+func TestLoadMissingCommand(t *testing.T) {
+	root := t.TempDir()
+	content := []byte(`commands:
+  - name: "valid"
+    command: echo
+    args: ["test"]
+
+  - name: "no command"
+    description: "this has no command field"
+
+  - name: "also valid"
+    command: ls
+`)
+	path := filepath.Join(root, "test.yaml")
+	os.WriteFile(path, content, 0644)
+
+	loader := NewWithPath(root)
+	commands, err := loader.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	// Entry without command should be skipped
+	if len(commands) != 2 {
+		t.Fatalf("expected 2 commands (1 skipped), got %d", len(commands))
+	}
+
+	if commands[0].Name != "valid" {
+		t.Errorf("expected first command %q, got %q", "valid", commands[0].Name)
+	}
+	if commands[1].Name != "also valid" {
+		t.Errorf("expected second command %q, got %q", "also valid", commands[1].Name)
+	}
+}
+
+func TestLoadMultilineDescription(t *testing.T) {
+	root := t.TempDir()
+	// YAML folded (>) and literal (|) block scalars
+	content := []byte(`commands:
+  - name: "folded"
+    command: echo
+    description: >
+      This is a folded description
+      that spans multiple lines
+      in the YAML source.
+
+  - name: "literal"
+    command: echo
+    description: |
+      This is a literal block
+      with actual newlines
+      preserved in the string.
+
+  - name: "plain wrap"
+    command: echo
+    description:
+      This is a plain scalar
+      that wraps across lines.
+`)
+	path := filepath.Join(root, "test.yaml")
+	os.WriteFile(path, content, 0644)
+
+	loader := NewWithPath(root)
+	commands, err := loader.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(commands) != 3 {
+		t.Fatalf("expected 3 commands, got %d", len(commands))
+	}
+
+	// All descriptions should be single-line with no newlines
+	for _, cmd := range commands {
+		for _, c := range cmd.Description {
+			if c == '\n' || c == '\r' || c == '\t' {
+				t.Errorf("command %q description contains whitespace char %q: %q",
+					cmd.Name, string(c), cmd.Description)
+			}
+		}
+	}
+
+	// Folded block: newlines become spaces
+	expected := "This is a folded description that spans multiple lines in the YAML source."
+	if commands[0].Description != expected {
+		t.Errorf("folded: got %q, want %q", commands[0].Description, expected)
+	}
+
+	// Literal block: newlines collapsed to spaces
+	expected = "This is a literal block with actual newlines preserved in the string."
+	if commands[1].Description != expected {
+		t.Errorf("literal: got %q, want %q", commands[1].Description, expected)
+	}
+
+	// Plain wrapped: YAML already joins these
+	expected = "This is a plain scalar that wraps across lines."
+	if commands[2].Description != expected {
+		t.Errorf("plain: got %q, want %q", commands[2].Description, expected)
+	}
+}
+
+func TestLoadEmptyDescription(t *testing.T) {
+	root := t.TempDir()
+	content := []byte(`commands:
+  - name: "empty string"
+    command: echo
+    args: ["hello"]
+    description: ""
+
+  - name: "missing field"
+    command: echo
+    args: ["world"]
+`)
+	path := filepath.Join(root, "test.yaml")
+	os.WriteFile(path, content, 0644)
+
+	loader := NewWithPath(root)
+	commands, err := loader.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(commands))
+	}
+
+	// Both should get auto-generated description
+	if commands[0].Description != "echo hello" {
+		t.Errorf("empty string desc: got %q, want %q", commands[0].Description, "echo hello")
+	}
+	if commands[1].Description != "echo world" {
+		t.Errorf("missing field desc: got %q, want %q", commands[1].Description, "echo world")
+	}
+}
