@@ -60,6 +60,7 @@ func pickWithFzf(commands []*command.Command) (*command.Command, error) {
 		"--height=~100%",
 		"--layout=reverse",
 		"--border",
+		"--cycle",
 		"--ansi",
 		"--prompt=command> ",
 		"--delimiter=\t",

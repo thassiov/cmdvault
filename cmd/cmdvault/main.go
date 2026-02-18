@@ -271,7 +271,7 @@ func promptForValue(name string) string {
 // selectFromSource runs a source command and pipes output to fzf for selection
 func selectFromSource(name, source string) (string, error) {
 	// Run source command and pipe to fzf
-	cmd := exec.Command("sh", "-c", source+" | fzf --height=~100% --layout=reverse --border --prompt='"+name+"> '")
+	cmd := exec.Command("sh", "-c", source+" | fzf --height=~100% --layout=reverse --border --cycle --prompt='"+name+"> '")
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
