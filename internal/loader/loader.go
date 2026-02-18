@@ -152,13 +152,23 @@ func (l *Loader) LoadDirFrom(dir string) ([]command.Descriptor, error) {
 
 // LoadDirRecursive loads all YAML files from a directory recursively (for default dir)
 func (l *Loader) LoadDirRecursive(dir string) ([]command.Descriptor, error) {
+	// Resolve symlinks so filepath.WalkDir works with symlinked directories
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("commands directory does not exist: %s", dir)
+		}
+		return nil, fmt.Errorf("resolve path %s: %w", dir, err)
+	}
+	dir = resolved
+
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("commands directory does not exist: %s", dir)
 	}
 
 	var allCommands []command.Descriptor
 
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
