@@ -29,7 +29,11 @@ compdef _cmdvault cmdvault
 
 cmdvault-widget() {
     zle -I  # Invalidate display
-    cmdvault
+    local result
+    result=$(cmdvault --print 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        LBUFFER+="$result"
+    fi
     zle reset-prompt
 }
 
