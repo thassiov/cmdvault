@@ -74,18 +74,44 @@ func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descri
 
 	category := deriveCategory(path, baseDir)
 
-	// Tag each command with its source file, category, and auto-generate alias if needed
+	// Validate and tag each command
+	var valid []command.Descriptor
 	for i := range cf.Commands {
-		if cf.Commands[i].Name == "" {
-			cf.Commands[i].Name = fmt.Sprintf("%s#%d", filepath.Base(path), i)
+		cmd := &cf.Commands[i]
+
+		// Skip entries without a command binary
+		if cmd.Command == "" {
+			fmt.Fprintf(os.Stderr, "warning: %s entry %d has no command, skipping\n", path, i)
+			continue
 		}
-		cf.Commands[i].Category = category
-		if cf.Commands[i].Alias == "" {
-			cf.Commands[i].Alias = generateAlias(cf.Commands[i].Name)
+
+		// Generate name from filename if missing
+		if cmd.Name == "" {
+			cmd.Name = fmt.Sprintf("%s#%d", filepath.Base(path), i)
 		}
+
+		// Sanitize name and description: collapse newlines/tabs to spaces
+		cmd.Name = sanitize(cmd.Name)
+		cmd.Description = sanitize(cmd.Description)
+
+		// Generate description from the command itself if missing
+		if cmd.Description == "" {
+			if len(cmd.Args) > 0 {
+				cmd.Description = cmd.Command + " " + strings.Join(cmd.Args, " ")
+			} else {
+				cmd.Description = cmd.Command
+			}
+		}
+
+		cmd.Category = category
+		if cmd.Alias == "" {
+			cmd.Alias = generateAlias(cmd.Name)
+		}
+
+		valid = append(valid, *cmd)
 	}
 
-	return cf.Commands, nil
+	return valid, nil
 }
 
 // deriveCategory computes the category from a file path relative to a base directory.
@@ -233,6 +259,18 @@ func (l *Loader) DefaultDirExists() bool {
 // GetCommandsDir returns the commands directory path
 func (l *Loader) GetCommandsDir() string {
 	return l.commandsDir
+}
+
+// sanitize collapses newlines, tabs, and multiple spaces into single spaces
+func sanitize(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\t", " ")
+	// Collapse multiple spaces
+	for strings.Contains(s, "  ") {
+		s = strings.Replace(s, "  ", " ", -1)
+	}
+	return strings.TrimSpace(s)
 }
 
 func isYAMLFile(name string) bool {
