@@ -54,6 +54,8 @@ Then just run `cmdvault`, fuzzy-search for "postgres", and execute.
 | Feature | Description |
 |---------|-------------|
 | **Fuzzy Search** | Uses `fzf` if available, falls back to built-in picker |
+| **Print Mode** | `--print` outputs the resolved command instead of running it |
+| **Cursor Insertion** | Ctrl+F inserts the selected command at your cursor position |
 | **Dynamic Placeholders** | `{{port}}`, `{{host}}` — fill in at runtime or via fzf selection |
 | **Smart Sources** | Populate placeholders from command output (e.g., list of containers) |
 | **Direct Aliases** | Skip the picker: `cmdvault my-alias` |
@@ -61,7 +63,7 @@ Then just run `cmdvault`, fuzzy-search for "postgres", and execute.
 | **Execution History** | Every run logged with timestamp, exit code, and duration |
 | **Shell Integration** | Tab completion + keybindings for bash/zsh |
 | **Pipeable** | Clean output when piped — no decorations |
-| **Categories** | Auto-organized by filename (docker.yaml → docker category) |
+| **Categories** | Auto-organized by directory structure (nested directories supported) |
 
 ---
 
@@ -99,6 +101,10 @@ cmdvault --simple
 
 # Run command directly by alias
 cmdvault list-containers
+
+# Print the resolved command instead of running it
+cmdvault --print
+cmdvault --print list-containers
 
 # Specify a custom commands file or directory
 cmdvault -f ~/my-commands.yaml
@@ -222,16 +228,58 @@ When you run `cmdvault container-logs`:
     branch:
       source: "git branch -a --format='%(refname:short)'"
 
-# Select a kubernetes pod
-- name: pod logs
+# Select a kubernetes namespace
+- name: set namespace
   command: kubectl
-  args: ["logs", "-f", "{{pod}}", "-n", "{{namespace}}"]
+  args: ["config", "set-context", "--current", "--namespace={{namespace}}"]
   placeholders:
     namespace:
-      source: "kubectl get ns -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n'"
-    pod:
-      source: "kubectl get pods -n {{namespace}} -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n'"
+      source: "kubectl get ns --no-headers -o custom-columns=:metadata.name"
 ```
+
+---
+
+## Print Mode
+
+The `--print` flag outputs the fully resolved command string instead of executing it. Placeholders are filled (via positional args, prompts, or dynamic sources) and the result is printed to stdout with proper shell quoting.
+
+```bash
+# Pick a command from the list and print it
+cmdvault --print
+# → nmap -sV -p 1-1000 192.168.1.1
+
+# Print a specific alias
+cmdvault --print list-containers
+# → docker ps -a
+```
+
+### Composing Commands
+
+This is especially powerful for wrapping commands in other contexts:
+
+```bash
+# Run a command inside a Docker container
+docker run --rm -it alpine sh -c "$(cmdvault --print)"
+
+# Pipe to xargs, clipboard, or a script
+cmdvault --print | xclip -selection clipboard
+cmdvault --print | xargs -I{} ssh remote-host {}
+
+# Preview what a command resolves to before running it
+cmd=$(cmdvault --print) && echo "$cmd" && eval "$cmd"
+```
+
+### Cursor Insertion (Ctrl+F)
+
+With the shell integration loaded, pressing **Ctrl+F** opens the picker and inserts the resolved command at your current cursor position. This lets you compose commands interactively:
+
+```
+$ docker run --rm -it ubuntu sh -c "<Ctrl+F → pick 'nmap scan'>"
+$ docker run --rm -it ubuntu sh -c "nmap -sV -p 1-1000 192.168.1.1"
+                                    ↑ inserted here — review, edit, then hit Enter
+```
+
+The command is inserted but not executed, giving you a chance to review or modify it before running.
 
 ---
 
@@ -256,8 +304,10 @@ source /path/to/cmdvault/shell/cmdvault.zsh
 ### What You Get
 
 - **Tab completion** for aliases
-- **Ctrl+F** keybinding to launch cmdvault picker
+- **Ctrl+F** inserts a selected command at the cursor (uses `--print` mode)
 - **Seamless integration** with your workflow
+
+To run commands directly (without insertion), use `cmdvault` or `cmdvault <alias>` as usual.
 
 ---
 
@@ -283,12 +333,16 @@ All runs are logged to `~/.config/cmdvault/history.jsonl`:
 
 ```
 ~/.config/cmdvault/
-├── commands/           # Your command YAML files
-│   ├── docker.yaml
-│   ├── git.yaml
-│   └── k8s.yaml
-└── history.jsonl       # Execution history
+├── commands/              # Your command YAML files
+│   ├── docker.yaml        # → category [docker]
+│   ├── git.yaml           # → category [git]
+│   ├── k8s.yaml           # → category [k8s]
+│   └── cloud/
+│       └── aws.yaml       # → category [cloud/aws]
+└── history.jsonl          # Execution history
 ```
+
+Nested directories create hierarchical categories automatically.
 
 ---
 
