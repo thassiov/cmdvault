@@ -71,7 +71,7 @@ On first run with no commands directory, cmdvault will offer to create `~/.confi
 
 ## Command collection
 
-Looking for ready-made commands? Check out [cmdvault-registry](https://github.com/thassiov/cmdvault-registry) — 525+ commands covering system admin, networking, containers, security, development, and more.
+[cmdvault-registry](https://github.com/thassiov/cmdvault-registry) is a companion repo with 525+ ready-made command snippets organized in 33 YAML files. It covers system administration, networking, containers, security and cryptography, backup tools, development workflows, cloud CLIs, and package managers. Each command has a description and configured placeholders so it works out of the box.
 
 ```bash
 git clone https://github.com/thassiov/cmdvault-registry
