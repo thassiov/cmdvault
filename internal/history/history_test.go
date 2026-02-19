@@ -105,7 +105,7 @@ func TestListMalformedLines(t *testing.T) {
 not-valid-json
 {"timestamp":"2025-01-15T10:31:00Z","user":"test","name":"also-good","command":"ls","args":[],"exit_code":0,"duration_ns":1000000000}
 `
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write test file: %v", err)
 	}
 
@@ -183,12 +183,12 @@ func TestMostUsed(t *testing.T) {
 
 	// Log commands with different frequencies
 	for i := 0; i < 5; i++ {
-		h.Log(sampleEntry("docker-ps", "docker", 0))
+		_ = h.Log(sampleEntry("docker-ps", "docker", 0))
 	}
 	for i := 0; i < 3; i++ {
-		h.Log(sampleEntry("git-status", "git", 0))
+		_ = h.Log(sampleEntry("git-status", "git", 0))
 	}
-	h.Log(sampleEntry("ls-files", "ls", 0))
+	_ = h.Log(sampleEntry("ls-files", "ls", 0))
 
 	t.Run("top 2", func(t *testing.T) {
 		top, err := h.MostUsed(2)
@@ -233,7 +233,7 @@ func TestClear(t *testing.T) {
 	h := NewWithPath(path)
 
 	// Log something first
-	h.Log(sampleEntry("test", "echo", 0))
+	_ = h.Log(sampleEntry("test", "echo", 0))
 
 	// Verify file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {

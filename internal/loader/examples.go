@@ -15,7 +15,7 @@ var exampleFiles embed.FS
 func (l *Loader) CopyExamples() error {
 	examplesDir := filepath.Join(l.commandsDir, "examples")
 
-	if err := os.MkdirAll(examplesDir, 0755); err != nil {
+	if err := os.MkdirAll(examplesDir, 0o755); err != nil {
 		return fmt.Errorf("create examples dir: %w", err)
 	}
 
@@ -42,7 +42,7 @@ func (l *Loader) CopyExamples() error {
 			return fmt.Errorf("read %s: %w", srcPath, err)
 		}
 
-		if err := os.WriteFile(dstPath, data, 0644); err != nil {
+		if err := os.WriteFile(dstPath, data, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", dstPath, err)
 		}
 	}

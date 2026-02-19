@@ -63,9 +63,6 @@ func TestNew(t *testing.T) {
 	if cmd.Output == nil {
 		t.Error("New() Output channel should not be nil")
 	}
-	if !cmd.IsRunning() == true {
-		// IsRunning should be false for idle command
-	}
 	if cmd.IsRunning() {
 		t.Error("New() IsRunning() should be false")
 	}
@@ -97,7 +94,7 @@ func TestStartAndFinish(t *testing.T) {
 	}
 
 	// Collect output
-	var output []string
+	output := make([]string, 0, 1)
 	for out := range cmd.Output {
 		output = append(output, out.Content)
 	}
@@ -159,7 +156,7 @@ func TestStartAlreadyRunning(t *testing.T) {
 	if err := cmd.Start(context.Background()); err != nil {
 		t.Fatalf("Start() error: %v", err)
 	}
-	defer cmd.Kill()
+	defer func() { _ = cmd.Kill() }()
 
 	// Second start should fail
 	err := cmd.Start(context.Background())
@@ -283,7 +280,7 @@ func TestWorkDir(t *testing.T) {
 		t.Fatalf("Start() error: %v", err)
 	}
 
-	var output []string
+	output := make([]string, 0, 1)
 	for out := range cmd.Output {
 		output = append(output, out.Content)
 	}

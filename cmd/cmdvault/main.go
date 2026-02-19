@@ -50,7 +50,7 @@ func main() {
 		fmt.Print("Create it? (y/n): ")
 
 		var answer string
-		fmt.Scanln(&answer)
+		_, _ = fmt.Scanln(&answer)
 
 		if answer != "y" && answer != "Y" {
 			os.Exit(0)
@@ -229,7 +229,7 @@ func logExecution(cmd *command.Command, startTime time.Time, duration time.Durat
 		WorkDir:   workdir,
 	}
 
-	hist.Log(entry)
+	_ = hist.Log(entry)
 }
 
 var placeholderRegex = regexp.MustCompile(`\{\{(\w+)\}\}`)
@@ -307,7 +307,7 @@ func selectFromSource(name, source string) (string, error) {
 
 	output, err := cmd.Output()
 	if err != nil {
-		// User cancelled or error
+		// User canceled or error
 		return "", err
 	}
 
@@ -426,7 +426,7 @@ func getPlaceholderValue(name string, config *command.PlaceholderConfig, resolve
 	if config != nil && config.Type == "file" {
 		value, err := selectFile(name, config)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Selection cancelled, enter manually.\n")
+			fmt.Fprintf(os.Stderr, "Selection canceled, enter manually.\n")
 			return promptForValue(name, config)
 		}
 		return value
@@ -436,7 +436,7 @@ func getPlaceholderValue(name string, config *command.PlaceholderConfig, resolve
 	if config != nil && config.Source != "" {
 		value, err := selectFromSource(name, config.Source)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Selection cancelled, enter manually.\n")
+			fmt.Fprintf(os.Stderr, "Selection canceled, enter manually.\n")
 			return promptForValue(name, config)
 		}
 		return value

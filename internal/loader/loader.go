@@ -61,7 +61,7 @@ func (l *Loader) LoadFile(path string) ([]command.Descriptor, error) {
 //	commands/docker.yaml              → category "docker"
 //	commands/grid/health.yaml         → category "grid/health"
 //	commands/grid/opnsense/dnsbl.yaml → category "grid/opnsense/dnsbl"
-func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descriptor, error) {
+func (l *Loader) loadFileWithBase(path, baseDir string) ([]command.Descriptor, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", path, err)
@@ -75,7 +75,7 @@ func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descri
 	category := deriveCategory(path, baseDir)
 
 	// Validate and tag each command
-	var valid []command.Descriptor
+	valid := make([]command.Descriptor, 0, len(cf.Commands))
 	for i := range cf.Commands {
 		cmd := &cf.Commands[i]
 
@@ -131,7 +131,7 @@ func (l *Loader) loadFileWithBase(path string, baseDir string) ([]command.Descri
 //	deriveCategory("/commands/grid/health.yaml", "/commands")        → "grid/health"
 //	deriveCategory("/commands/grid/opnsense/dnsbl.yaml", "/commands") → "grid/opnsense/dnsbl"
 //	deriveCategory("/anywhere/docker.yaml", "")                       → "docker"
-func deriveCategory(path string, baseDir string) string {
+func deriveCategory(path, baseDir string) string {
 	if baseDir != "" {
 		rel, err := filepath.Rel(baseDir, path)
 		if err == nil {
@@ -251,7 +251,7 @@ func (l *Loader) Load(filePath string) ([]command.Descriptor, error) {
 
 // EnsureDefaultDirs creates the default config directories if they don't exist
 func (l *Loader) EnsureDefaultDirs() error {
-	if err := os.MkdirAll(l.commandsDir, 0755); err != nil {
+	if err := os.MkdirAll(l.commandsDir, 0o755); err != nil {
 		return fmt.Errorf("create commands dir: %w", err)
 	}
 	return nil
@@ -275,7 +275,7 @@ func sanitize(s string) string {
 	s = strings.ReplaceAll(s, "\t", " ")
 	// Collapse multiple spaces
 	for strings.Contains(s, "  ") {
-		s = strings.Replace(s, "  ", " ", -1)
+		s = strings.ReplaceAll(s, "  ", " ")
 	}
 	return strings.TrimSpace(s)
 }

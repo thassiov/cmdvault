@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"context"
 	"testing"
 
 	"github.com/thassiov/cmdvault/internal/command"
@@ -175,7 +176,7 @@ func TestLoadFromDescriptorsEmpty(t *testing.T) {
 
 func TestRunNonExistent(t *testing.T) {
 	orch := New()
-	err := orch.Run(nil, "fake-id")
+	err := orch.Run(context.TODO(), "fake-id")
 	if err == nil {
 		t.Error("Run() with fake ID should return error")
 	}

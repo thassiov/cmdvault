@@ -32,7 +32,7 @@ func PickSimple(commands []*command.Command) (*command.Command, error) {
 
 	fmt.Print("\nEnter number (q to quit): ")
 	var input string
-	fmt.Scanln(&input)
+	_, _ = fmt.Scanln(&input)
 
 	if input == "q" || input == "" {
 		return nil, nil
@@ -105,7 +105,7 @@ func pickWithFzf(commands []*command.Command) (*command.Command, error) {
 	}
 
 	if err := fzf.Wait(); err != nil {
-		// User cancelled (Ctrl+C or Esc)
+		// User canceled (Ctrl+C or Esc)
 		return nil, nil
 	}
 
@@ -149,7 +149,7 @@ func pickWithBuiltin(commands []*command.Command) (*command.Command, error) {
 
 	if err != nil {
 		if err == fuzzyfinder.ErrAbort {
-			return nil, nil // User cancelled
+			return nil, nil // User canceled
 		}
 		return nil, err
 	}

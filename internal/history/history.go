@@ -40,7 +40,7 @@ func New() (*History, error) {
 	}
 
 	dir := filepath.Join(home, DefaultConfigDir)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create config dir: %w", err)
 	}
 
@@ -56,7 +56,7 @@ func NewWithPath(path string) *History {
 
 // Log appends an entry to the history file
 func (h *History) Log(entry Entry) error {
-	f, err := os.OpenFile(h.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(h.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open history file: %w", err)
 	}

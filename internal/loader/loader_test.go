@@ -69,11 +69,15 @@ func TestLoadDirRecursiveCategories(t *testing.T) {
 	writeTestYAML(t, filepath.Join(root, "flat.yaml"), "flat command")
 
 	// sub/nested.yaml
-	os.MkdirAll(filepath.Join(root, "sub"), 0755)
+	if err := os.MkdirAll(filepath.Join(root, "sub"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	writeTestYAML(t, filepath.Join(root, "sub", "nested.yaml"), "nested command")
 
 	// sub/deep/deep.yaml
-	os.MkdirAll(filepath.Join(root, "sub", "deep"), 0755)
+	if err := os.MkdirAll(filepath.Join(root, "sub", "deep"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	writeTestYAML(t, filepath.Join(root, "sub", "deep", "deep.yaml"), "deep command")
 
 	loader := NewWithPath(root)
@@ -99,10 +103,10 @@ func TestLoadDirRecursiveCategories(t *testing.T) {
 	}
 }
 
-func writeTestYAML(t *testing.T, path string, name string) {
+func writeTestYAML(t *testing.T, path, name string) {
 	t.Helper()
 	content := []byte("commands:\n  - name: " + name + "\n    command: echo\n    args: [\"test\"]\n")
-	if err := os.WriteFile(path, content, 0644); err != nil {
+	if err := os.WriteFile(path, content, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }
@@ -189,7 +193,9 @@ func TestLoadMissingName(t *testing.T) {
     description: "no name provided"
 `)
 		path := filepath.Join(root, "test.yaml")
-		os.WriteFile(path, content, 0644)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
 		loader := NewWithPath(root)
 		commands, err := loader.LoadFile(path)
@@ -226,7 +232,9 @@ func TestLoadMissingName(t *testing.T) {
     args: ["-la"]
 `)
 		path := filepath.Join(root, "test.yaml")
-		os.WriteFile(path, content, 0644)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
 		loader := NewWithPath(root)
 		commands, err := loader.LoadFile(path)
@@ -267,7 +275,9 @@ func TestLoadMissingDescription(t *testing.T) {
     command: ls
 `)
 	path := filepath.Join(root, "test.yaml")
-	os.WriteFile(path, content, 0644)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	loader := NewWithPath(root)
 	commands, err := loader.LoadFile(path)
@@ -304,7 +314,9 @@ func TestLoadMissingCommand(t *testing.T) {
     command: ls
 `)
 	path := filepath.Join(root, "test.yaml")
-	os.WriteFile(path, content, 0644)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	loader := NewWithPath(root)
 	commands, err := loader.LoadFile(path)
@@ -350,7 +362,9 @@ func TestLoadMultilineDescription(t *testing.T) {
       that wraps across lines.
 `)
 	path := filepath.Join(root, "test.yaml")
-	os.WriteFile(path, content, 0644)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	loader := NewWithPath(root)
 	commands, err := loader.LoadFile(path)
@@ -404,7 +418,9 @@ func TestLoadEmptyDescription(t *testing.T) {
     args: ["world"]
 `)
 	path := filepath.Join(root, "test.yaml")
-	os.WriteFile(path, content, 0644)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	loader := NewWithPath(root)
 	commands, err := loader.LoadFile(path)
@@ -441,7 +457,9 @@ func TestLoadPlaceholderConfig(t *testing.T) {
         default: "{{input}}"
 `)
 		path := filepath.Join(root, "test.yaml")
-		os.WriteFile(path, content, 0644)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
 		loader := NewWithPath(root)
 		commands, err := loader.LoadFile(path)
@@ -500,7 +518,9 @@ func TestLoadPlaceholderConfig(t *testing.T) {
         source: "tmux list-sessions -F '#S' 2>/dev/null"
 `)
 		path := filepath.Join(root, "test.yaml")
-		os.WriteFile(path, content, 0644)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
 		loader := NewWithPath(root)
 		commands, err := loader.LoadFile(path)
