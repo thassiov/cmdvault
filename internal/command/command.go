@@ -118,12 +118,15 @@ func (c *Command) Start(ctx context.Context) error {
 	c.StartedAt = &now
 	c.Status = StatusRunning
 
-	// Stream output in goroutines
-	go c.streamOutput(stdout, Stdout)
-	go c.streamOutput(stderr, Stderr)
+	// Stream output in goroutines; WaitGroup ensures both finish
+	// before the output channel is closed.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); c.streamOutput(stdout, Stdout) }()
+	go func() { defer wg.Done(); c.streamOutput(stderr, Stderr) }()
 
 	// Wait for completion in background
-	go c.wait()
+	go c.wait(&wg)
 
 	return nil
 }
@@ -140,9 +143,14 @@ func (c *Command) streamOutput(r io.Reader, outputType OutputType) {
 	}
 }
 
-// wait waits for the command to finish and updates status
-func (c *Command) wait() {
+// wait waits for the command to finish and updates status.
+// It waits for the streamOutput goroutines (tracked by wg) to drain
+// before closing the Output channel, preventing a send-on-closed-channel race.
+func (c *Command) wait(wg *sync.WaitGroup) {
 	err := c.cmd.Wait()
+
+	// Wait for stdout/stderr goroutines to finish sending before closing.
+	wg.Wait()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
