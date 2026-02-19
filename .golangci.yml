@@ -1,0 +1,30 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+    - gosimple
+    - misspell
+    - prealloc
+    - unconvert
+    - unparam
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+    disabled-checks:
+      - ifElseChain  # sometimes clearer than switch
+  misspell:
+    locale: US
+
+issues:
+  exclude-rules:
+    # Test files can have unused parameters (table-driven test helpers)
+    - path: _test\.go
+      linters:
+        - unparam

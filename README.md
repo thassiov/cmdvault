@@ -1,5 +1,10 @@
 # cmdvault
 
+[![CI](https://github.com/thassiov/cmdvault/actions/workflows/ci.yml/badge.svg)](https://github.com/thassiov/cmdvault/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/thassiov/cmdvault)](https://goreportcard.com/report/github.com/thassiov/cmdvault)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Latest Release](https://img.shields.io/github/v/release/thassiov/cmdvault)](https://github.com/thassiov/cmdvault/releases/latest)
+
 A searchable vault for your CLI commands. Define them in YAML, find them with fuzzy search, fill in the blanks at runtime.
 
 <!-- TODO: screenshot of the picker in action -->
