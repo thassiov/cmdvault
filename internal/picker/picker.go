@@ -34,6 +34,11 @@ func PickSimple(commands []*command.Command) (*command.Command, error) {
 	var input string
 	_, _ = fmt.Scanln(&input)
 
+	return parseSelection(input, commands)
+}
+
+// parseSelection validates user input and returns the selected command.
+func parseSelection(input string, commands []*command.Command) (*command.Command, error) {
 	if input == "q" || input == "" {
 		return nil, nil
 	}
