@@ -108,18 +108,18 @@ func loadCommands(filePath string) []command.Descriptor {
 }
 
 // selectCommand picks a command via alias argument or interactive picker.
-func selectCommand(orch *orchestrator.Orchestrator, simple bool) (*command.Command, []string) {
+func selectCommand(orch *orchestrator.Orchestrator, simple bool) (selected *command.Command, cliArgs []string) {
 	if alias := flag.Arg(0); alias != "" {
-		selected := orch.FindByAlias(alias)
+		selected = orch.FindByAlias(alias)
 		if selected == nil {
 			fmt.Fprintf(os.Stderr, "error: unknown alias %q\n", alias)
 			os.Exit(1)
 		}
-		return selected, flag.Args()[1:]
+		cliArgs = flag.Args()[1:]
+		return
 	}
 
 	cmdList := orch.List()
-	var selected *command.Command
 	var err error
 
 	if simple {
@@ -137,7 +137,7 @@ func selectCommand(orch *orchestrator.Orchestrator, simple bool) (*command.Comma
 		os.Exit(0)
 	}
 
-	return selected, nil
+	return
 }
 
 // resolvePlaceholders processes CLI args, fills placeholders, and returns the final arg list.
@@ -200,7 +200,6 @@ func executeAndLog(selected *command.Command, resolvedArgs []string) {
 	startTime := time.Now()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	if err := selected.Start(ctx); err != nil {
 		stop()
@@ -212,6 +211,7 @@ func executeAndLog(selected *command.Command, resolvedArgs []string) {
 		fmt.Println(out.Content)
 	}
 
+	stop()
 	duration := time.Since(startTime)
 
 	if isTTY {
