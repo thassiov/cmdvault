@@ -149,6 +149,11 @@ func (c *Command) streamOutput(r io.Reader, outputType OutputType) {
 func (c *Command) wait(wg *sync.WaitGroup) {
 	err := c.cmd.Wait()
 
+	// Close stdin pipe now that the process has exited.
+	if c.stdin != nil {
+		c.stdin.Close()
+	}
+
 	// Wait for stdout/stderr goroutines to finish sending before closing.
 	wg.Wait()
 
