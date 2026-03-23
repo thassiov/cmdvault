@@ -1,16 +1,33 @@
 linters:
   enable:
+    # Correctness
     - errcheck
     - govet
     - staticcheck
+
+    # Bug prevention
     - unused
     - ineffassign
-    - gocritic
+
+    # Simplicity
     - gosimple
-    - misspell
-    - prealloc
     - unconvert
     - unparam
+
+    # Maintainability
+    - gocritic
+    - gocyclo
+    - gocognit
+    - funlen
+    - nestif
+    - dupl
+
+    # Style
+    - misspell
+    - prealloc
+    - errname
+    - exhaustive
+    - godot
 
 linters-settings:
   gocritic:
@@ -21,10 +38,32 @@ linters-settings:
       - ifElseChain  # sometimes clearer than switch
   misspell:
     locale: US
+  gocyclo:
+    min-complexity: 15
+  gocognit:
+    min-complexity: 15
+  funlen:
+    lines: 80
+    statements: 50
+  nestif:
+    min-complexity: 4
+  dupl:
+    threshold: 100
+  exhaustive:
+    default-signifies-exhaustive: true
 
 issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-rules:
     # Test files can have unused parameters (table-driven test helpers)
     - path: _test\.go
       linters:
         - unparam
+    # Test files can be longer and more complex
+    - path: _test\.go
+      linters:
+        - funlen
+        - dupl
+        - gocognit
+        - gocyclo
