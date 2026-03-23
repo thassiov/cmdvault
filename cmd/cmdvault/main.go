@@ -155,19 +155,17 @@ func main() {
 		}
 	}
 
-	// Fill placeholders and append passthrough args
-	finalArgs := fillPlaceholders(selected.Descriptor.Args, values)
-	finalArgs = append(finalArgs, passthroughArgs...)
-
-	// Update the command's args with the processed ones
-	selected.Descriptor.Args = finalArgs
+	// Fill placeholders and append passthrough args.
+	// Use a local slice to avoid mutating the original descriptor.
+	resolvedArgs := fillPlaceholders(selected.Descriptor.Args, values)
+	resolvedArgs = append(resolvedArgs, passthroughArgs...)
 
 	// Print mode: output the resolved command string and exit.
 	// When stdout is a TTY (direct invocation), add a trailing newline for clean display.
 	// When captured (e.g. $(cmdvault --print)), omit it so shell widgets work cleanly.
 	if *printMode {
-		if len(selected.Descriptor.Args) > 0 {
-			fmt.Printf("%s %s", selected.Descriptor.Command, shelljoin(selected.Descriptor.Args))
+		if len(resolvedArgs) > 0 {
+			fmt.Printf("%s %s", selected.Descriptor.Command, shelljoin(resolvedArgs))
 		} else {
 			fmt.Print(selected.Descriptor.Command)
 		}
@@ -177,10 +175,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Set resolved args on the descriptor for execution.
+	// This is intentionally late — resolvedArgs is built without mutating
+	// the original slice, so placeholder extraction stays idempotent.
+	selected.Descriptor.Args = resolvedArgs
+
 	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
 	if isTTY {
-		fmt.Printf("\nRunning: %s %v\n", selected.Descriptor.Command, selected.Descriptor.Args)
+		fmt.Printf("\nRunning: %s %v\n", selected.Descriptor.Command, resolvedArgs)
 		fmt.Println(strings.Repeat("-", 40))
 	}
 
