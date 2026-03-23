@@ -1,3 +1,4 @@
+// Package history records command execution history as JSONL entries.
 package history
 
 import (

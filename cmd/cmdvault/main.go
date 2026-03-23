@@ -222,6 +222,8 @@ func executeAndLog(selected *command.Command, resolvedArgs []string) {
 	logExecution(selected, startTime, duration)
 }
 
+// logExecution records the command run in the history file.
+// Errors are silently ignored to avoid disrupting the user experience.
 func logExecution(cmd *command.Command, startTime time.Time, duration time.Duration) {
 	hist, err := history.New()
 	if err != nil {

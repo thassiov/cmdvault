@@ -1,3 +1,5 @@
+// Package command provides process lifecycle management for external commands.
+// It wraps exec.Cmd with output streaming, status tracking, and cancellation support.
 package command
 
 import (
@@ -56,7 +58,7 @@ type Command struct {
 	StartedAt  *time.Time
 	FinishedAt *time.Time
 	ExitCode   *int
-	Output     chan Output // consumers read from this
+	Output     chan Output // buffered channel (100); closed by wait() when the process exits.
 
 	mu     sync.RWMutex
 	cmd    *exec.Cmd

@@ -1,3 +1,4 @@
+// Package orchestrator manages a registry of commands, providing lookup by ID or alias.
 package orchestrator
 
 import (

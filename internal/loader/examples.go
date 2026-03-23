@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 )
 
+// exampleFiles embeds the starter YAML command files from the examples/ directory.
+// These are copied into the user's commands dir on first run.
+//
 //go:embed examples/*.yaml
 var exampleFiles embed.FS
 

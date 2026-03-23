@@ -1,3 +1,5 @@
+// Package prompt handles interactive user input for placeholder values,
+// including plain text prompts, fzf source selection, and file pickers.
 package prompt
 
 import (

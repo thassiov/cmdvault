@@ -1,3 +1,4 @@
+// Package loader reads command descriptors from YAML files on disk.
 package loader
 
 import (
@@ -277,6 +278,7 @@ func sanitize(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// isYAMLFile reports whether a filename has a .yaml or .yml extension.
 func isYAMLFile(name string) bool {
 	lower := strings.ToLower(name)
 	return strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml")

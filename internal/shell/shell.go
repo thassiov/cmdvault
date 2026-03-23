@@ -1,3 +1,4 @@
+// Package shell provides utilities for safe shell string escaping and quoting.
 package shell
 
 import "strings"

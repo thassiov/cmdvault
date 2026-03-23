@@ -1,3 +1,4 @@
+// Package picker provides interactive command selection via fzf or a built-in fallback.
 package picker
 
 import (
@@ -55,11 +56,14 @@ func parseSelection(input string, commands []*command.Command) (*command.Command
 	return commands[idx], nil
 }
 
+// hasFzf reports whether fzf is available on PATH.
 func hasFzf() bool {
 	_, err := exec.LookPath("fzf")
 	return err == nil
 }
 
+// pickWithFzf pipes commands as tab-delimited lines into fzf and returns the selection.
+// Format: ID\tCategory\tName\tDescription (ID is hidden from the user via --with-nth).
 func pickWithFzf(commands []*command.Command) (*command.Command, error) {
 	fzf := exec.Command("fzf",
 		"--height=~100%",
@@ -129,6 +133,7 @@ func pickWithFzf(commands []*command.Command) (*command.Command, error) {
 	return nil, fmt.Errorf("command not found")
 }
 
+// pickWithBuiltin uses go-fuzzyfinder as a TUI fallback when fzf is not installed.
 func pickWithBuiltin(commands []*command.Command) (*command.Command, error) {
 	idx, err := fuzzyfinder.Find(
 		commands,

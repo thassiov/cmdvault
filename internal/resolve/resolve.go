@@ -1,3 +1,5 @@
+// Package resolve handles placeholder extraction, filling, and template expansion
+// for command argument strings using the {{name}} syntax.
 package resolve
 
 import "regexp"
