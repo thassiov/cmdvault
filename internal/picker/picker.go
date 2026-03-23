@@ -11,8 +11,8 @@ import (
 	"github.com/thassiov/cmdvault/internal/command"
 )
 
-// Pick prompts the user to select a command
-// Tries fzf first, falls back to built-in fuzzy finder
+// Pick prompts the user to select a command.
+// Tries fzf first, falls back to built-in fuzzy finder.
 func Pick(commands []*command.Command) (*command.Command, error) {
 	if hasFzf() {
 		return pickWithFzf(commands)
@@ -20,7 +20,7 @@ func Pick(commands []*command.Command) (*command.Command, error) {
 	return pickWithBuiltin(commands)
 }
 
-// PickSimple uses a basic numbered list
+// PickSimple uses a basic numbered list.
 func PickSimple(commands []*command.Command) (*command.Command, error) {
 	fmt.Printf("Commands:\n\n")
 	for i, cmd := range commands {

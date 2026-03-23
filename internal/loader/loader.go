@@ -15,7 +15,7 @@ const (
 	DefaultCommandDir = "commands"
 )
 
-// CommandFile represents the structure of a YAML command file
+// CommandFile represents the structure of a YAML command file.
 type CommandFile struct {
 	// Optional metadata for the file
 	Name        string               `yaml:"name,omitempty"`
@@ -23,12 +23,12 @@ type CommandFile struct {
 	Commands    []command.Descriptor `yaml:"commands"`
 }
 
-// Loader handles loading command files
+// Loader handles loading command files.
 type Loader struct {
 	commandsDir string
 }
 
-// New creates a loader with default paths (~/.config/cmdvault/commands)
+// New creates a loader with default paths (~/.config/cmdvault/commands).
 func New() (*Loader, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -40,14 +40,14 @@ func New() (*Loader, error) {
 	}, nil
 }
 
-// NewWithPath creates a loader with a custom commands directory
+// NewWithPath creates a loader with a custom commands directory.
 func NewWithPath(commandsDir string) *Loader {
 	return &Loader{
 		commandsDir: commandsDir,
 	}
 }
 
-// LoadFile loads commands from a specific YAML file
+// LoadFile loads commands from a specific YAML file.
 func (l *Loader) LoadFile(path string) ([]command.Descriptor, error) {
 	return l.loadFileWithBase(path, "")
 }
@@ -144,12 +144,12 @@ func deriveCategory(path, baseDir string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
-// LoadDir loads all YAML files from the commands directory recursively
+// LoadDir loads all YAML files from the commands directory recursively.
 func (l *Loader) LoadDir() ([]command.Descriptor, error) {
 	return l.LoadDirRecursive(l.commandsDir)
 }
 
-// LoadDirFrom loads YAML files from first level of a directory (for custom paths)
+// LoadDirFrom loads YAML files from first level of a directory (for custom paths).
 func (l *Loader) LoadDirFrom(dir string) ([]command.Descriptor, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -183,7 +183,7 @@ func (l *Loader) LoadDirFrom(dir string) ([]command.Descriptor, error) {
 	return allCommands, nil
 }
 
-// LoadDirRecursive loads all YAML files from a directory recursively (for default dir)
+// LoadDirRecursive loads all YAML files from a directory recursively (for default dir).
 func (l *Loader) LoadDirRecursive(dir string) ([]command.Descriptor, error) {
 	// Resolve symlinks so filepath.WalkDir works with symlinked directories
 	resolved, err := filepath.EvalSymlinks(dir)
@@ -231,7 +231,7 @@ func (l *Loader) LoadDirRecursive(dir string) ([]command.Descriptor, error) {
 	return allCommands, nil
 }
 
-// Load is the main entry point - loads from file if provided, otherwise from default dir
+// Load is the main entry point - loads from file if provided, otherwise from default dir.
 func (l *Loader) Load(filePath string) ([]command.Descriptor, error) {
 	if filePath != "" {
 		// Check if it's a file or directory
@@ -249,7 +249,7 @@ func (l *Loader) Load(filePath string) ([]command.Descriptor, error) {
 	return l.LoadDir()
 }
 
-// EnsureDefaultDirs creates the default config directories if they don't exist
+// EnsureDefaultDirs creates the default config directories if they don't exist.
 func (l *Loader) EnsureDefaultDirs() error {
 	if err := os.MkdirAll(l.commandsDir, 0o755); err != nil {
 		return fmt.Errorf("create commands dir: %w", err)
@@ -257,18 +257,18 @@ func (l *Loader) EnsureDefaultDirs() error {
 	return nil
 }
 
-// DefaultDirExists checks if the default commands directory exists
+// DefaultDirExists checks if the default commands directory exists.
 func (l *Loader) DefaultDirExists() bool {
 	_, err := os.Stat(l.commandsDir)
 	return err == nil
 }
 
-// GetCommandsDir returns the commands directory path
+// GetCommandsDir returns the commands directory path.
 func (l *Loader) GetCommandsDir() string {
 	return l.commandsDir
 }
 
-// sanitize collapses newlines, tabs, and multiple spaces into single spaces
+// sanitize collapses newlines, tabs, and multiple spaces into single spaces.
 func sanitize(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
@@ -285,8 +285,8 @@ func isYAMLFile(name string) bool {
 	return strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml")
 }
 
-// generateAlias creates an alias from a name by lowercasing and joining with dashes
-// "List Containers" → "list-containers"
+// generateAlias creates an alias from a name by lowercasing and joining with dashes.
+// "List Containers" → "list-containers".
 func generateAlias(name string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(name), " ", "-"))
 }

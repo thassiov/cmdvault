@@ -15,7 +15,7 @@ const (
 	HistoryFile      = "history.jsonl"
 )
 
-// Entry represents a single command execution
+// Entry represents a single command execution.
 type Entry struct {
 	Timestamp time.Time     `json:"timestamp"`
 	User      string        `json:"user"`
@@ -27,12 +27,12 @@ type Entry struct {
 	WorkDir   string        `json:"workdir,omitempty"`
 }
 
-// History manages command execution history
+// History manages command execution history.
 type History struct {
 	path string
 }
 
-// New creates a history manager with default path (~/.config/cmdvault/history.jsonl)
+// New creates a history manager with default path (~/.config/cmdvault/history.jsonl).
 func New() (*History, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -49,12 +49,12 @@ func New() (*History, error) {
 	}, nil
 }
 
-// NewWithPath creates a history manager with a custom path
+// NewWithPath creates a history manager with a custom path.
 func NewWithPath(path string) *History {
 	return &History{path: path}
 }
 
-// Log appends an entry to the history file
+// Log appends an entry to the history file.
 func (h *History) Log(entry Entry) error {
 	f, err := os.OpenFile(h.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
@@ -74,7 +74,7 @@ func (h *History) Log(entry Entry) error {
 	return nil
 }
 
-// List returns all history entries
+// List returns all history entries.
 func (h *History) List() ([]Entry, error) {
 	f, err := os.Open(h.path)
 	if err != nil {
@@ -98,7 +98,7 @@ func (h *History) List() ([]Entry, error) {
 	return entries, scanner.Err()
 }
 
-// Recent returns the last n entries (most recent first)
+// Recent returns the last n entries (most recent first).
 func (h *History) Recent(n int) ([]Entry, error) {
 	entries, err := h.List()
 	if err != nil {
@@ -117,14 +117,14 @@ func (h *History) Recent(n int) ([]Entry, error) {
 	return entries[:n], nil
 }
 
-// CommandCount represents a command and its execution count
+// CommandCount represents a command and its execution count.
 type CommandCount struct {
 	Name    string
 	Command string
 	Count   int
 }
 
-// MostUsed returns the n most frequently executed commands
+// MostUsed returns the n most frequently executed commands.
 func (h *History) MostUsed(n int) ([]CommandCount, error) {
 	entries, err := h.List()
 	if err != nil {
@@ -163,12 +163,12 @@ func (h *History) MostUsed(n int) ([]CommandCount, error) {
 	return result[:n], nil
 }
 
-// Clear removes all history
+// Clear removes all history.
 func (h *History) Clear() error {
 	return os.Remove(h.path)
 }
 
-// Path returns the history file path
+// Path returns the history file path.
 func (h *History) Path() string {
 	return h.path
 }

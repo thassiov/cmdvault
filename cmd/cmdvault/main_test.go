@@ -396,7 +396,7 @@ func TestNeedsQuoting(t *testing.T) {
 	}
 }
 
-// slicesEqual compares two string slices, treating nil and empty as equal
+// slicesEqual compares two string slices, treating nil and empty as equal.
 func slicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

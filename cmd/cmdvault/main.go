@@ -22,7 +22,7 @@ import (
 	"github.com/thassiov/cmdvault/internal/picker"
 )
 
-// Version is set at build time via -ldflags "-X main.Version=..."
+// Version is set at build time via -ldflags "-X main.Version=...".
 var Version = "dev"
 
 func main() {
@@ -234,7 +234,7 @@ func logExecution(cmd *command.Command, startTime time.Time, duration time.Durat
 
 var placeholderRegex = regexp.MustCompile(`\{\{(\w+)\}\}`)
 
-// extractPlaceholders finds all {{name}} placeholders in args, returns unique names in order
+// extractPlaceholders finds all {{name}} placeholders in args, returns unique names in order.
 func extractPlaceholders(args []string) []string {
 	seen := make(map[string]bool)
 	var placeholders []string
@@ -253,7 +253,7 @@ func extractPlaceholders(args []string) []string {
 	return placeholders
 }
 
-// splitOnDoubleDash splits args into before and after "--"
+// splitOnDoubleDash splits args into before and after "--".
 func splitOnDoubleDash(args []string) (before, after []string) {
 	for i, arg := range args {
 		if arg == "--" {
@@ -263,7 +263,7 @@ func splitOnDoubleDash(args []string) (before, after []string) {
 	return args, nil
 }
 
-// fillPlaceholders replaces {{name}} with values from the map
+// fillPlaceholders replaces {{name}} with values from the map.
 func fillPlaceholders(args []string, values map[string]string) []string {
 	result := make([]string, len(args))
 	for i, arg := range args {
@@ -278,7 +278,7 @@ func fillPlaceholders(args []string, values map[string]string) []string {
 	return result
 }
 
-// promptForValue prompts the user to enter a value for the placeholder
+// promptForValue prompts the user to enter a value for the placeholder.
 func promptForValue(name string, config *command.PlaceholderConfig) string {
 	reader := bufio.NewReader(os.Stdin)
 	prompt := name
@@ -298,7 +298,7 @@ func promptForValue(name string, config *command.PlaceholderConfig) string {
 	return value
 }
 
-// selectFromSource runs a source command and pipes output to fzf for selection
+// selectFromSource runs a source command and pipes output to fzf for selection.
 func selectFromSource(name, source string) (string, error) {
 	// Run source command and pipe to fzf
 	cmd := exec.Command("sh", "-c", source+" | fzf --height=~100% --layout=reverse --border --cycle --prompt='"+name+"> '")
@@ -381,12 +381,12 @@ fi
 	return selected, nil
 }
 
-// shellescape wraps a string in single quotes for safe shell embedding
+// shellescape wraps a string in single quotes for safe shell embedding.
 func shellescape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
-// shelljoin combines args into a shell-safe string, quoting args that need it
+// shelljoin combines args into a shell-safe string, quoting args that need it.
 func shelljoin(args []string) string {
 	var parts []string
 	for _, arg := range args {
@@ -403,7 +403,7 @@ func shelljoin(args []string) string {
 	return strings.Join(parts, " ")
 }
 
-// needsQuoting returns true if a string contains characters that need shell quoting
+// needsQuoting returns true if a string contains characters that need shell quoting.
 func needsQuoting(s string) bool {
 	for _, c := range s {
 		switch c {
@@ -414,7 +414,7 @@ func needsQuoting(s string) bool {
 	return false
 }
 
-// getPlaceholderValue gets a value for a placeholder, using source or file picker if configured
+// getPlaceholderValue gets a value for a placeholder, using source or file picker if configured.
 func getPlaceholderValue(name string, config *command.PlaceholderConfig, resolved map[string]string) string {
 	// Apply default template: {{other_placeholder}} references in default are replaced
 	// with already-resolved values (e.g., output defaulting to input's path)

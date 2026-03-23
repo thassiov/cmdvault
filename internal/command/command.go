@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// OutputType distinguishes between stdout and stderr
+// OutputType distinguishes between stdout and stderr.
 type OutputType int
 
 const (
@@ -21,14 +21,14 @@ const (
 	Stderr
 )
 
-// Output represents a line of output from the command
+// Output represents a line of output from the command.
 type Output struct {
 	Type    OutputType
 	Content string
 	Time    time.Time
 }
 
-// PlaceholderConfig defines options for a placeholder
+// PlaceholderConfig defines options for a placeholder.
 type PlaceholderConfig struct {
 	Source      string `json:"source,omitempty" yaml:"source,omitempty"`           // command to run for options
 	Type        string `json:"type,omitempty" yaml:"type,omitempty"`               // "file" for file picker, "" for default
@@ -36,7 +36,7 @@ type PlaceholderConfig struct {
 	Default     string `json:"default,omitempty" yaml:"default,omitempty"`         // pre-filled default value
 }
 
-// Descriptor defines a command from config
+// Descriptor defines a command from config.
 type Descriptor struct {
 	Name         string                       `json:"name" yaml:"name"`
 	Command      string                       `json:"command" yaml:"command"`
@@ -48,7 +48,7 @@ type Descriptor struct {
 	Category     string                       `json:"-" yaml:"-"` // derived from source filename
 }
 
-// Command wraps a process with lifecycle management
+// Command wraps a process with lifecycle management.
 type Command struct {
 	ID         string
 	Descriptor Descriptor
@@ -64,7 +64,7 @@ type Command struct {
 	stdin  io.WriteCloser
 }
 
-// New creates a command from a descriptor
+// New creates a command from a descriptor.
 func New(desc Descriptor) *Command {
 	return &Command{
 		ID:         uuid.New().String(),
@@ -74,7 +74,7 @@ func New(desc Descriptor) *Command {
 	}
 }
 
-// Start executes the command
+// Start executes the command.
 func (c *Command) Start(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -131,7 +131,7 @@ func (c *Command) Start(ctx context.Context) error {
 	return nil
 }
 
-// streamOutput reads from a pipe and sends to the output channel
+// streamOutput reads from a pipe and sends to the output channel.
 func (c *Command) streamOutput(r io.Reader, outputType OutputType) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -175,7 +175,7 @@ func (c *Command) wait(wg *sync.WaitGroup) {
 	close(c.Output)
 }
 
-// Stop sends SIGTERM to the process
+// Stop sends SIGTERM to the process.
 func (c *Command) Stop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -192,7 +192,7 @@ func (c *Command) Stop() error {
 	return nil
 }
 
-// Kill sends SIGKILL to the process
+// Kill sends SIGKILL to the process.
 func (c *Command) Kill() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -213,7 +213,7 @@ func (c *Command) Kill() error {
 	return nil
 }
 
-// SendInput writes to the command's stdin
+// SendInput writes to the command's stdin.
 func (c *Command) SendInput(input string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -226,14 +226,14 @@ func (c *Command) SendInput(input string) error {
 	return err
 }
 
-// IsRunning returns true if the command is currently running
+// IsRunning returns true if the command is currently running.
 func (c *Command) IsRunning() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.Status == StatusRunning
 }
 
-// PID returns the process ID if running
+// PID returns the process ID if running.
 func (c *Command) PID() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

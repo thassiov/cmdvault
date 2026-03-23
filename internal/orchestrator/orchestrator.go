@@ -8,20 +8,20 @@ import (
 	"github.com/thassiov/cmdvault/internal/command"
 )
 
-// Orchestrator manages multiple commands
+// Orchestrator manages multiple commands.
 type Orchestrator struct {
 	commands map[string]*command.Command
 	mu       sync.RWMutex
 }
 
-// New creates an orchestrator
+// New creates an orchestrator.
 func New() *Orchestrator {
 	return &Orchestrator{
 		commands: make(map[string]*command.Command),
 	}
 }
 
-// Add creates a command from a descriptor and adds it
+// Add creates a command from a descriptor and adds it.
 func (o *Orchestrator) Add(desc command.Descriptor) *command.Command {
 	cmd := command.New(desc)
 
@@ -32,7 +32,7 @@ func (o *Orchestrator) Add(desc command.Descriptor) *command.Command {
 	return cmd
 }
 
-// Get returns a command by ID
+// Get returns a command by ID.
 func (o *Orchestrator) Get(id string) (*command.Command, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
@@ -44,7 +44,7 @@ func (o *Orchestrator) Get(id string) (*command.Command, error) {
 	return cmd, nil
 }
 
-// Remove removes a command by ID (stops it first if running)
+// Remove removes a command by ID (stops it first if running).
 func (o *Orchestrator) Remove(id string) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -62,7 +62,7 @@ func (o *Orchestrator) Remove(id string) error {
 	return nil
 }
 
-// Run starts a command by ID
+// Run starts a command by ID.
 func (o *Orchestrator) Run(ctx context.Context, id string) error {
 	cmd, err := o.Get(id)
 	if err != nil {
@@ -71,7 +71,7 @@ func (o *Orchestrator) Run(ctx context.Context, id string) error {
 	return cmd.Start(ctx)
 }
 
-// Stop stops a command by ID
+// Stop stops a command by ID.
 func (o *Orchestrator) Stop(id string) error {
 	cmd, err := o.Get(id)
 	if err != nil {
@@ -80,7 +80,7 @@ func (o *Orchestrator) Stop(id string) error {
 	return cmd.Stop()
 }
 
-// Kill kills a command by ID
+// Kill kills a command by ID.
 func (o *Orchestrator) Kill(id string) error {
 	cmd, err := o.Get(id)
 	if err != nil {
@@ -89,7 +89,7 @@ func (o *Orchestrator) Kill(id string) error {
 	return cmd.Kill()
 }
 
-// List returns all commands
+// List returns all commands.
 func (o *Orchestrator) List() []*command.Command {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
@@ -101,7 +101,7 @@ func (o *Orchestrator) List() []*command.Command {
 	return list
 }
 
-// StopAll stops all running commands
+// StopAll stops all running commands.
 func (o *Orchestrator) StopAll() {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
@@ -113,14 +113,14 @@ func (o *Orchestrator) StopAll() {
 	}
 }
 
-// LoadFromDescriptors creates commands from a slice of descriptors
+// LoadFromDescriptors creates commands from a slice of descriptors.
 func (o *Orchestrator) LoadFromDescriptors(descriptors []command.Descriptor) {
 	for _, desc := range descriptors {
 		o.Add(desc)
 	}
 }
 
-// FindByAlias returns a command by its alias
+// FindByAlias returns a command by its alias.
 func (o *Orchestrator) FindByAlias(alias string) *command.Command {
 	o.mu.RLock()
 	defer o.mu.RUnlock()

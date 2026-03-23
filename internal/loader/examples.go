@@ -11,7 +11,7 @@ import (
 //go:embed examples/*.yaml
 var exampleFiles embed.FS
 
-// CopyExamples copies the embedded example files to commands/examples/
+// CopyExamples copies the embedded example files to commands/examples/.
 func (l *Loader) CopyExamples() error {
 	examplesDir := filepath.Join(l.commandsDir, "examples")
 
@@ -50,7 +50,7 @@ func (l *Loader) CopyExamples() error {
 	return nil
 }
 
-// EnsureDefaultDirsWithExamples creates the directories and copies example files
+// EnsureDefaultDirsWithExamples creates the directories and copies example files.
 func (l *Loader) EnsureDefaultDirsWithExamples() error {
 	if err := l.EnsureDefaultDirs(); err != nil {
 		return err
@@ -81,7 +81,7 @@ func (l *Loader) EnsureDefaultDirsWithExamples() error {
 	return nil
 }
 
-// ListExamples returns the names of embedded example files
+// ListExamples returns the names of embedded example files.
 func ListExamples() ([]string, error) {
 	entries, err := fs.ReadDir(exampleFiles, "examples")
 	if err != nil {
