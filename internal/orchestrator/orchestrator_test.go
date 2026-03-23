@@ -209,17 +209,23 @@ func TestStopAll(t *testing.T) {
 
 func TestAddMultipleSameAlias(t *testing.T) {
 	orch := New()
-	orch.Add(desc("first", "echo", "same-alias"))
-	orch.Add(desc("second", "ls", "same-alias"))
+	descs := []command.Descriptor{
+		{Name: "first", Command: "echo", Alias: "same-alias"},
+		{Name: "second", Command: "ls", Alias: "same-alias"},
+	}
+	orch.LoadFromDescriptors(descs)
 
-	// Both should be in the list (different IDs)
+	// Both should be in the list (different IDs).
 	if len(orch.List()) != 2 {
 		t.Errorf("List() = %d, want 2 (duplicate aliases allowed)", len(orch.List()))
 	}
 
-	// FindByAlias returns one of them (non-deterministic which, but should not be nil)
+	// FindByAlias deterministically returns the first command loaded.
 	cmd := orch.FindByAlias("same-alias")
 	if cmd == nil {
-		t.Error("FindByAlias() should find at least one command with duplicate alias")
+		t.Fatal("FindByAlias() should find a command with duplicate alias")
+	}
+	if cmd.Descriptor.Name != "first" {
+		t.Errorf("FindByAlias() = %q, want %q (first loaded wins)", cmd.Descriptor.Name, "first")
 	}
 }

@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/thassiov/cmdvault/internal/command"
@@ -11,6 +12,7 @@ import (
 // Orchestrator manages multiple commands.
 type Orchestrator struct {
 	commands map[string]*command.Command
+	aliases  map[string]*command.Command
 	mu       sync.RWMutex
 }
 
@@ -18,15 +20,22 @@ type Orchestrator struct {
 func New() *Orchestrator {
 	return &Orchestrator{
 		commands: make(map[string]*command.Command),
+		aliases:  make(map[string]*command.Command),
 	}
 }
 
 // Add creates a command from a descriptor and adds it.
+// If the alias is already taken, the existing mapping is preserved.
 func (o *Orchestrator) Add(desc command.Descriptor) *command.Command {
 	cmd := command.New(desc)
 
 	o.mu.Lock()
 	o.commands[cmd.ID] = cmd
+	if alias := cmd.Descriptor.Alias; alias != "" {
+		if _, exists := o.aliases[alias]; !exists {
+			o.aliases[alias] = cmd
+		}
+	}
 	o.mu.Unlock()
 
 	return cmd
@@ -114,9 +123,21 @@ func (o *Orchestrator) StopAll() {
 }
 
 // LoadFromDescriptors creates commands from a slice of descriptors.
+// Duplicate aliases are detected and logged to stderr; the first command wins.
 func (o *Orchestrator) LoadFromDescriptors(descriptors []command.Descriptor) {
+	seen := make(map[string]string) // alias -> first command name
 	for _, desc := range descriptors {
 		o.Add(desc)
+		alias := desc.Alias
+		if alias == "" {
+			continue
+		}
+		if firstName, ok := seen[alias]; ok {
+			fmt.Fprintf(os.Stderr, "warning: duplicate alias %q: %q ignored, already assigned to %q\n",
+				alias, desc.Name, firstName)
+		} else {
+			seen[alias] = desc.Name
+		}
 	}
 }
 
@@ -125,10 +146,5 @@ func (o *Orchestrator) FindByAlias(alias string) *command.Command {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	for _, cmd := range o.commands {
-		if cmd.Descriptor.Alias == alias {
-			return cmd
-		}
-	}
-	return nil
+	return o.aliases[alias]
 }
