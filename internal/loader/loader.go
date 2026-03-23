@@ -74,51 +74,48 @@ func (l *Loader) loadFileWithBase(path, baseDir string) ([]command.Descriptor, e
 
 	category := deriveCategory(path, baseDir)
 
-	// Validate and tag each command
 	valid := make([]command.Descriptor, 0, len(cf.Commands))
 	for i := range cf.Commands {
 		cmd := &cf.Commands[i]
 
-		// Skip entries without a command binary
 		if cmd.Command == "" {
 			fmt.Fprintf(os.Stderr, "warning: %s entry %d has no command, skipping\n", path, i)
 			continue
 		}
 
-		// Generate name from filename if missing
-		if cmd.Name == "" {
-			if cmd.Description != "" {
-				// Promote user-written description to name;
-				// clear description so it gets auto-generated from command+args
-				cmd.Name = cmd.Description
-				cmd.Description = ""
-			} else {
-				cmd.Name = fmt.Sprintf("%s#%d", filepath.Base(path), i)
-			}
-		}
-
-		// Sanitize name and description: collapse newlines/tabs to spaces
-		cmd.Name = sanitize(cmd.Name)
-		cmd.Description = sanitize(cmd.Description)
-
-		// Generate description from the command itself if missing
-		if cmd.Description == "" {
-			if len(cmd.Args) > 0 {
-				cmd.Description = cmd.Command + " " + strings.Join(cmd.Args, " ")
-			} else {
-				cmd.Description = cmd.Command
-			}
-		}
-
-		cmd.Category = category
-		if cmd.Alias == "" {
-			cmd.Alias = generateAlias(cmd.Name)
-		}
-
+		normalizeDescriptor(cmd, category, path, i)
 		valid = append(valid, *cmd)
 	}
 
 	return valid, nil
+}
+
+// normalizeDescriptor fills in missing fields on a command descriptor.
+func normalizeDescriptor(cmd *command.Descriptor, category, path string, index int) {
+	if cmd.Name == "" {
+		if cmd.Description != "" {
+			cmd.Name = cmd.Description
+			cmd.Description = ""
+		} else {
+			cmd.Name = fmt.Sprintf("%s#%d", filepath.Base(path), index)
+		}
+	}
+
+	cmd.Name = sanitize(cmd.Name)
+	cmd.Description = sanitize(cmd.Description)
+
+	if cmd.Description == "" {
+		if len(cmd.Args) > 0 {
+			cmd.Description = cmd.Command + " " + strings.Join(cmd.Args, " ")
+		} else {
+			cmd.Description = cmd.Command
+		}
+	}
+
+	cmd.Category = category
+	if cmd.Alias == "" {
+		cmd.Alias = generateAlias(cmd.Name)
+	}
 }
 
 // deriveCategory computes the category from a file path relative to a base directory.
