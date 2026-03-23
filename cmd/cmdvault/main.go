@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/term"
@@ -184,7 +186,10 @@ func main() {
 
 	startTime := time.Now()
 
-	if err := selected.Start(context.Background()); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := selected.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "error starting command: %v\n", err)
 		os.Exit(1)
 	}
