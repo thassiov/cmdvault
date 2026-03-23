@@ -90,10 +90,10 @@ cmdvault -f ~/work/commands/         # load a directory
 cmdvault -f ~/scripts/deploy.yaml    # load a single file
 ```
 
-You can also load from multiple directories by combining with [cmdvault-registry](https://github.com/thassiov/cmdvault-registry):
+You can also use community command files from [cmdvault-registry](https://github.com/thassiov/cmdvault-registry) by pointing `-f` at the registry directory:
 
 ```bash
-cmdvault -f ~/.config/cmdvault/commands -f /path/to/cmdvault-registry/registry/
+cmdvault -f /path/to/cmdvault-registry/registry/
 ```
 
 <!-- TODO: screenshot of the picker showing categories and descriptions -->
