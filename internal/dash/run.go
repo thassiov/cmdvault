@@ -51,23 +51,32 @@ func tickEvery(d time.Duration) tea.Cmd {
 // spinnerFrames are the braille spinner frames advanced on each tick.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-// startRun launches the command at the given index. Returns the next tea.Cmd
-// that begins draining the command's output channel, or a rejection.
+// startRun begins running a command by index. If the command has placeholders,
+// it hands control to a prompt chain; otherwise it launches immediately.
 func (m *Model) startRun(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(m.commands) {
 		return nil
 	}
 	d := m.commands[idx]
 
-	// M5 will handle placeholder prompts. For now, reject commands that
-	// have them so we don't run with unresolved {{name}} literals.
 	if placeholders := resolve.ExtractPlaceholders(d.Args); len(placeholders) > 0 {
-		return func() tea.Msg {
-			return runRejectedMsg{reason: "command has placeholders (M5 will handle prompting)"}
-		}
+		m.prompting = newPromptState(d, placeholders)
+		m.prompting.build()
+		m.resizeChildren()
+		return nil
 	}
 
-	cmd := command.New(d)
+	return m.launchCommand(d, d.Args)
+}
+
+// launchCommand starts a process with already-resolved args and begins
+// draining its output channel.
+func (m *Model) launchCommand(d command.Descriptor, args []string) tea.Cmd {
+	// Copy the descriptor and replace Args with the resolved values.
+	resolved := d
+	resolved.Args = args
+
+	cmd := command.New(resolved)
 	if err := cmd.Start(context.Background()); err != nil {
 		return func() tea.Msg { return runFailedMsg{err: err} }
 	}
@@ -75,8 +84,8 @@ func (m *Model) startRun(idx int) tea.Cmd {
 	m.active = &activeRun{cmd: cmd, startedAt: time.Now()}
 
 	m.output.StartRun(RunRecord{
-		Descriptor: d,
-		Args:       d.Args,
+		Descriptor: resolved,
+		Args:       args,
 		StartedAt:  m.active.startedAt,
 	})
 

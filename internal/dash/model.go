@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/thassiov/cmdvault/internal/command"
+	"github.com/thassiov/cmdvault/internal/resolve"
 )
 
 // Model is the top-level bubbletea model for the dashboard.
@@ -20,7 +21,8 @@ type Model struct {
 	picker Picker
 	output Output
 
-	active *activeRun // nil when idle
+	active    *activeRun   // nil when idle
+	prompting *PromptState // non-nil while resolving placeholders
 
 	// Transient status line override (e.g., "can't run — already running").
 	flash      string
@@ -56,6 +58,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// While prompting, all keys (except ^c) go to the prompt widget.
+		if m.prompting != nil {
+			if msg.String() == "ctrl+c" {
+				return m.handleCtrlC()
+			}
+			cmd := m.prompting.prompt.Update(msg)
+			return m, cmd
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m.handleCtrlC()
@@ -141,6 +152,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case runRejectedMsg:
 		m.setFlash(msg.reason, 3*time.Second)
 		return m, nil
+
+	case promptConfirmedMsg:
+		if m.prompting == nil {
+			return m, nil
+		}
+		done := m.prompting.advance(msg.value)
+		if !done {
+			m.resizeChildren()
+			return m, nil
+		}
+		// All placeholders resolved — fill args and launch.
+		desc := m.prompting.desc
+		resolved := resolve.FillPlaceholders(desc.Args, m.prompting.values)
+		m.prompting = nil
+		m.resizeChildren()
+		return m, m.launchCommand(desc, resolved)
+
+	case promptCanceledMsg:
+		m.prompting = nil
+		m.resizeChildren()
+		m.setFlash("prompt canceled", 2*time.Second)
+		return m, nil
 	}
 
 	// Unknown message: forward to picker.
@@ -166,10 +199,16 @@ func (m Model) View() string {
 		Height(outputH).
 		Render(m.output.View())
 
+	var paneBody string
+	if m.prompting != nil {
+		paneBody = m.prompting.prompt.View()
+	} else {
+		paneBody = m.picker.View()
+	}
 	picker := stylePickerPane.
 		Width(m.width - 2).
 		Height(pickerH - 1).
-		Render(m.picker.View())
+		Render(paneBody)
 
 	status := styleStatusLine.
 		Width(m.width).
@@ -187,6 +226,10 @@ func (m Model) View() string {
 func (m Model) statusText() string {
 	if m.flash != "" && time.Now().Before(m.flashUntil) {
 		return m.flash
+	}
+	if m.prompting != nil {
+		return fmt.Sprintf("prompt %d/%d · %s · ⏎ confirm · Esc cancel",
+			m.prompting.current+1, len(m.prompting.placeholders), m.prompting.desc.Name)
 	}
 	if m.active != nil {
 		spinner := spinnerFrames[m.spinnerIdx]
@@ -279,4 +322,7 @@ func (m *Model) resizeChildren() {
 	outputH := m.outputHeight()
 	m.picker.SetSize(m.width-4, pickerH-2)
 	m.output.SetSize(m.width-2, outputH)
+	if m.prompting != nil && m.prompting.prompt != nil {
+		m.prompting.prompt.SetSize(m.width-4, pickerH-2)
+	}
 }
