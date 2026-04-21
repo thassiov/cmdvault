@@ -169,37 +169,51 @@ func (p *Prompt) SetSize(w, h int) {
 
 // Update handles key events and emits promptConfirmedMsg / promptCanceledMsg.
 func (p *Prompt) Update(msg tea.Msg) tea.Cmd {
-	keyMsg, isKey := msg.(tea.KeyMsg)
-	if isKey {
-		switch keyMsg.String() {
-		case "esc":
-			return func() tea.Msg { return promptCanceledMsg{} }
-		case "enter":
-			return p.confirm()
-		case "up", "ctrl+p":
-			if p.kind != kindText {
-				p.moveCursor(-1)
-				return nil
-			}
-		case "down", "ctrl+n":
-			if p.kind != kindText {
-				p.moveCursor(1)
-				return nil
-			}
-		case "pgup":
-			if p.kind != kindText {
-				p.moveCursor(-p.visibleRows())
-				return nil
-			}
-		case "pgdown":
-			if p.kind != kindText {
-				p.moveCursor(p.visibleRows())
-				return nil
-			}
+	if key, ok := msg.(tea.KeyMsg); ok {
+		if cmd, handled := p.handleControlKey(key); handled {
+			return cmd
 		}
 	}
+	return p.forwardToInput(msg)
+}
 
-	// Forward to the underlying input.
+// handleControlKey handles keys that aren't typed into the input field
+// (Enter, Esc, arrow keys in list mode). Returns handled=false when the
+// key should pass through to the input.
+func (p *Prompt) handleControlKey(key tea.KeyMsg) (tea.Cmd, bool) {
+	switch key.String() {
+	case "esc":
+		return func() tea.Msg { return promptCanceledMsg{} }, true
+	case "enter":
+		return p.confirm(), true
+	case "up", "ctrl+p":
+		if p.kind != kindText {
+			p.moveCursor(-1)
+			return nil, true
+		}
+	case "down", "ctrl+n":
+		if p.kind != kindText {
+			p.moveCursor(1)
+			return nil, true
+		}
+	case "pgup":
+		if p.kind != kindText {
+			p.moveCursor(-p.visibleRows())
+			return nil, true
+		}
+	case "pgdown":
+		if p.kind != kindText {
+			p.moveCursor(p.visibleRows())
+			return nil, true
+		}
+	}
+	return nil, false
+}
+
+// forwardToInput routes the message to the underlying text input (either
+// the text prompt's input or the list's filter field), then refreshes the
+// filter / root if the query changed.
+func (p *Prompt) forwardToInput(msg tea.Msg) tea.Cmd {
 	if p.kind == kindText {
 		var cmd tea.Cmd
 		p.input, cmd = p.input.Update(msg)
@@ -209,16 +223,15 @@ func (p *Prompt) Update(msg tea.Msg) tea.Cmd {
 	prev := p.filter.Value()
 	var cmd tea.Cmd
 	p.filter, cmd = p.filter.Update(msg)
-	if p.filter.Value() != prev {
-		// File prompt may need to switch root based on leading char.
-		if p.kind == kindFile {
-			want := detectFileRoot(p.filter.Value())
-			if want != p.currentRoot {
-				p.loadFileRoot(want)
-			}
-		}
-		p.applyFilter()
+	if p.filter.Value() == prev {
+		return cmd
 	}
+	if p.kind == kindFile {
+		if want := detectFileRoot(p.filter.Value()); want != p.currentRoot {
+			p.loadFileRoot(want)
+		}
+	}
+	p.applyFilter()
 	return cmd
 }
 
@@ -420,7 +433,7 @@ func (p *Prompt) loadFileRoot(root string) {
 // walkFiles returns a flat list of file paths under root, bounded by maxDepth
 // relative to root and a total count cap. Returns paths with ~/ shorthand
 // when under $HOME.
-func walkFiles(root string, maxDepth, max int) ([]string, error) {
+func walkFiles(root string, maxDepth, limit int) ([]string, error) {
 	home, _ := os.UserHomeDir()
 	var out []string
 
@@ -428,33 +441,40 @@ func walkFiles(root string, maxDepth, max int) ([]string, error) {
 		if walkErr != nil {
 			return nil // skip unreadable entries rather than abort
 		}
-		if len(out) >= max {
+		if len(out) >= limit {
 			return filepath.SkipAll
 		}
-
 		if d.IsDir() {
-			// skip .git and similar
-			if d.Name() == ".git" || d.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
-			// depth check
-			rel, err := filepath.Rel(root, path)
-			if err == nil && rel != "." {
-				if strings.Count(rel, string(filepath.Separator))+1 > maxDepth {
-					return filepath.SkipDir
-				}
-			}
-			return nil
+			return dirWalkAction(root, path, d, maxDepth)
 		}
-
-		display := path
-		if home != "" && strings.HasPrefix(path, home+"/") {
-			display = "~/" + path[len(home)+1:]
-		}
-		out = append(out, display)
+		out = append(out, displayPath(path, home))
 		return nil
 	})
 	return out, err
+}
+
+// dirWalkAction decides whether to descend into, skip, or ignore a directory
+// during walkFiles.
+func dirWalkAction(root, path string, d os.DirEntry, maxDepth int) error {
+	if d.Name() == ".git" || d.Name() == "node_modules" {
+		return filepath.SkipDir
+	}
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == "." {
+		return nil
+	}
+	if strings.Count(rel, string(filepath.Separator))+1 > maxDepth {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+// displayPath formats a path with ~/ shorthand when it lives under $HOME.
+func displayPath(path, home string) string {
+	if home != "" && strings.HasPrefix(path, home+"/") {
+		return "~/" + path[len(home)+1:]
+	}
+	return path
 }
 
 // detectFileRoot inspects the leading chars of a filter query and decides

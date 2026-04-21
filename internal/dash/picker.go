@@ -73,9 +73,8 @@ func (p Picker) Init() tea.Cmd {
 }
 
 func (p Picker) Update(msg tea.Msg) (Picker, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
 		case "up", "ctrl+p":
 			p.moveCursor(-1)
 			return p, nil

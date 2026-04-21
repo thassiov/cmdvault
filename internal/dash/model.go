@@ -61,44 +61,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// While prompting, all keys (except ^c) go to the prompt widget.
-		if m.prompting != nil {
-			if msg.String() == "ctrl+c" {
-				return m.handleCtrlC()
-			}
-			cmd := m.prompting.prompt.Update(msg)
-			return m, cmd
-		}
-
-		switch msg.String() {
-		case "ctrl+c":
-			return m.handleCtrlC()
-		case "f1":
-			m.showHelp = !m.showHelp
-			return m, nil
-		case "ctrl+k":
-			m.output.Clear()
-			return m, nil
-		case "ctrl+u":
-			m.output.ScrollUp(m.outputHeight() / 2)
-			return m, nil
-		case "ctrl+d":
-			m.output.ScrollDown(m.outputHeight() / 2)
-			return m, nil
-		case "ctrl+b":
-			m.output.ScrollUp(m.outputHeight())
-			return m, nil
-		case "ctrl+f":
-			m.output.ScrollDown(m.outputHeight())
-			return m, nil
-		case "ctrl+g":
-			m.output.GotoBottom()
-			return m, nil
-		}
-		// Everything else → picker.
-		var cmd tea.Cmd
-		m.picker, cmd = m.picker.Update(msg)
-		return m, cmd
+		return m.handleKey(msg)
 
 	case RunRequestedMsg:
 		if m.active != nil {
@@ -138,39 +101,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case runFailedMsg:
-		// Start failure: render a one-shot run record with the error.
-		if m.active == nil {
-			m.output.AppendRun(RunRecord{
-				Descriptor: command.Descriptor{Command: "(error)"},
-				Lines:      []string{msg.err.Error()},
-				ExitCode:   -1,
-			})
-		} else {
-			m.output.AppendLine("error: " + msg.err.Error())
-			m.output.FinishRun(-1, time.Since(m.active.startedAt))
-			m.active = nil
-		}
-		return m, nil
+		return m.handleRunFailed(msg)
 
 	case runRejectedMsg:
 		m.setFlash(msg.reason, 3*time.Second)
 		return m, nil
 
 	case promptConfirmedMsg:
-		if m.prompting == nil {
-			return m, nil
-		}
-		done := m.prompting.advance(msg.value)
-		if !done {
-			m.resizeChildren()
-			return m, nil
-		}
-		// All placeholders resolved — fill args and launch.
-		desc := m.prompting.desc
-		resolved := resolve.FillPlaceholders(desc.Args, m.prompting.values)
-		m.prompting = nil
-		m.resizeChildren()
-		return m, m.launchCommand(desc, resolved)
+		return m.handlePromptConfirmed(msg)
 
 	case promptCanceledMsg:
 		m.prompting = nil
@@ -271,30 +209,129 @@ func (m *Model) setFlash(msg string, d time.Duration) {
 	m.flashUntil = time.Now().Add(d)
 }
 
+// handleRunFailed records a failed command. If the failure happened during
+// start, we render it as a one-off record; if mid-run, we finalize the
+// in-flight record with a synthetic error line.
+func (m Model) handleRunFailed(msg runFailedMsg) (tea.Model, tea.Cmd) {
+	if m.active == nil {
+		m.output.AppendRun(RunRecord{
+			Descriptor: command.Descriptor{Command: "(error)"},
+			Lines:      []string{msg.err.Error()},
+			ExitCode:   -1,
+		})
+		return m, nil
+	}
+	m.output.AppendLine("error: " + msg.err.Error())
+	m.output.FinishRun(-1, time.Since(m.active.startedAt))
+	m.active = nil
+	return m, nil
+}
+
+// handlePromptConfirmed advances the prompt chain and, when done, launches
+// the command with the resolved arguments.
+func (m Model) handlePromptConfirmed(msg promptConfirmedMsg) (tea.Model, tea.Cmd) {
+	if m.prompting == nil {
+		return m, nil
+	}
+	if !m.prompting.advance(msg.value) {
+		m.resizeChildren()
+		return m, nil
+	}
+	desc := m.prompting.desc
+	resolved := resolve.FillPlaceholders(desc.Args, m.prompting.values)
+	m.prompting = nil
+	m.resizeChildren()
+	launch := m.launchCommand(desc, resolved)
+	return m, launch
+}
+
+// handleKey routes key events to the right target based on current mode.
+func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// While prompting, everything except ^c goes to the prompt widget.
+	if m.prompting != nil {
+		if msg.String() == "ctrl+c" {
+			return m.handleCtrlC()
+		}
+		return m, m.prompting.prompt.Update(msg)
+	}
+
+	if handled, model, cmd := m.handleGlobalKey(msg); handled {
+		return model, cmd
+	}
+
+	// Everything else → picker.
+	var cmd tea.Cmd
+	m.picker, cmd = m.picker.Update(msg)
+	return m, cmd
+}
+
+// handleGlobalKey handles the app-wide keys (quit, help, output scrolling).
+// Returns handled=true when the key was consumed.
+func (m Model) handleGlobalKey(msg tea.KeyMsg) (handled bool, model tea.Model, cmd tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		model, cmd = m.handleCtrlC()
+		return true, model, cmd
+	case "f1":
+		m.showHelp = !m.showHelp
+		return true, m, nil
+	case "ctrl+k":
+		m.output.Clear()
+		return true, m, nil
+	case "ctrl+u":
+		m.output.ScrollUp(m.outputHeight() / 2)
+		return true, m, nil
+	case "ctrl+d":
+		m.output.ScrollDown(m.outputHeight() / 2)
+		return true, m, nil
+	case "ctrl+b":
+		m.output.ScrollUp(m.outputHeight())
+		return true, m, nil
+	case "ctrl+f":
+		m.output.ScrollDown(m.outputHeight())
+		return true, m, nil
+	case "ctrl+g":
+		m.output.GotoBottom()
+		return true, m, nil
+	}
+	return false, m, nil
+}
+
 // handleCtrlC implements the three-way ^c behavior:
 //   - run in flight: first ^c → SIGINT, second within 2s → SIGKILL
 //   - idle, no runs yet: quit
 //   - idle, runs exist: first ^c arms quit, second within 2s actually quits
 func (m Model) handleCtrlC() (tea.Model, tea.Cmd) {
 	if m.active != nil {
-		if m.active.sigintAt.IsZero() || time.Since(m.active.sigintAt) > 2*time.Second {
-			if err := m.active.cmd.Stop(); err != nil {
-				m.setFlash("stop failed: "+err.Error(), 2*time.Second)
-				return m, nil
-			}
-			m.active.sigintAt = time.Now()
-			m.setFlash("SIGINT sent · ^c again within 2s to force kill", 2*time.Second)
+		return m.interruptActive()
+	}
+	return m.quitOrArm()
+}
+
+// interruptActive sends SIGINT on the first ^c and SIGKILL on the second
+// within 2s.
+func (m Model) interruptActive() (tea.Model, tea.Cmd) {
+	if m.active.sigintAt.IsZero() || time.Since(m.active.sigintAt) > 2*time.Second {
+		if err := m.active.cmd.Stop(); err != nil {
+			m.setFlash("stop failed: "+err.Error(), 2*time.Second)
 			return m, nil
 		}
-		if err := m.active.cmd.Kill(); err != nil {
-			m.setFlash("kill failed: "+err.Error(), 2*time.Second)
-			return m, nil
-		}
-		m.setFlash("SIGKILL sent", 2*time.Second)
+		m.active.sigintAt = time.Now()
+		m.setFlash("SIGINT sent · ^c again within 2s to force kill", 2*time.Second)
 		return m, nil
 	}
+	if err := m.active.cmd.Kill(); err != nil {
+		m.setFlash("kill failed: "+err.Error(), 2*time.Second)
+		return m, nil
+	}
+	m.setFlash("SIGKILL sent", 2*time.Second)
+	return m, nil
+}
 
-	// Idle.
+// quitOrArm handles ^c when no command is running. Quits immediately when
+// the output buffer is empty or the quit is already armed; otherwise arms
+// a 2-second quit confirmation.
+func (m Model) quitOrArm() (tea.Model, tea.Cmd) {
 	if len(m.output.runs) == 0 {
 		return m, tea.Quit
 	}
@@ -313,8 +350,8 @@ func (m Model) renderHelp() string {
 		Render("F1 to close")
 
 	sections := []struct {
-		name  string
-		keys  [][2]string
+		name string
+		keys [][2]string
 	}{
 		{"Picker", [][2]string{
 			{"type", "filter commands"},
