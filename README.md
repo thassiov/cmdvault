@@ -49,6 +49,7 @@ cmdvault                          # open the picker
 cmdvault container-logs           # run by alias
 cmdvault container-logs my-app    # fill placeholder from CLI
 cmdvault --print                  # print the resolved command instead of running it
+cmdvault --dash                   # open the persistent dashboard TUI
 cmdvault -f ~/work/commands/      # load from a custom directory
 ```
 
@@ -57,6 +58,7 @@ On first run with no commands directory, cmdvault will offer to create `~/.confi
 ## Features
 
 - **Fuzzy search** — fzf-powered picker with preview, or a built-in fallback
+- **Dashboard TUI** — `--dash` opens a persistent UI: the picker stays docked, output from every run accumulates in a scrollable pane above
 - **Placeholders** — `{{name}}` tokens in args, filled from CLI, dynamic sources, file picker, or interactive prompt
 - **Print mode** — `--print` outputs the resolved command for piping, scripting, or clipboard
 - **Ctrl+F insertion** — shell widget that inserts the picked command at your cursor
@@ -70,6 +72,7 @@ On first run with no commands directory, cmdvault will offer to create `~/.confi
 
 - **[Defining commands](docs/commands.md)** — YAML format, fields, aliases, categories
 - **[Placeholders](docs/placeholders.md)** — dynamic sources, file picker, defaults, cross-references
+- **[Dashboard mode](docs/dashboard.md)** — persistent TUI with docked picker and scrollable output
 - **[Shell integration](docs/shell-integration.md)** — tab completion, Ctrl+F widget, setup for bash/zsh
 - **[History](docs/history.md)** — execution logging, format, location
 - **[Print mode](docs/print-mode.md)** — composing commands, cursor insertion, scripting
