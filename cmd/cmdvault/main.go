@@ -14,6 +14,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/thassiov/cmdvault/internal/command"
+	"github.com/thassiov/cmdvault/internal/dash"
 	"github.com/thassiov/cmdvault/internal/history"
 	"github.com/thassiov/cmdvault/internal/loader"
 	"github.com/thassiov/cmdvault/internal/orchestrator"
@@ -31,6 +32,7 @@ func main() {
 	simple := flag.Bool("simple", false, "use simple numbered list instead of fuzzy finder")
 	listAliases := flag.Bool("list-aliases", false, "list all command aliases (for shell completion)")
 	printMode := flag.Bool("print", false, "print the resolved command instead of executing it")
+	dashMode := flag.Bool("dash", false, "launch the persistent dashboard TUI")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -44,6 +46,14 @@ func main() {
 	if *listAliases {
 		for _, cmd := range commands {
 			fmt.Println(cmd.Alias)
+		}
+		os.Exit(0)
+	}
+
+	if *dashMode {
+		if err := dash.Run(commands); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
 		}
 		os.Exit(0)
 	}
