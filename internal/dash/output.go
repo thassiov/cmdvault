@@ -12,15 +12,16 @@ import (
 	"github.com/thassiov/cmdvault/internal/command"
 )
 
-// RunRecord is one completed command execution as rendered in the output pane.
-// M3 will extend this to support in-progress runs.
+// RunRecord is a single command execution rendered in the output pane.
+// It may be in-flight (Finished=false, lines accumulating) or completed.
 type RunRecord struct {
 	Descriptor command.Descriptor
 	Args       []string // resolved args
-	Body       string   // joined stdout/stderr
+	Lines      []string // stdout/stderr lines in arrival order
 	StartedAt  time.Time
 	Duration   time.Duration
 	ExitCode   int
+	Finished   bool
 }
 
 // Output is the scrollable run buffer.
@@ -40,19 +41,63 @@ func NewOutput() Output {
 func (o *Output) SetSize(w, h int) {
 	o.vp.Width = w
 	o.vp.Height = h
-	o.vp.SetContent(o.renderAll())
+	o.refresh()
 }
 
-// AppendRun adds a run to the buffer. If the user was at the bottom before
-// the append, follow-tail scrolls to the new bottom; otherwise the viewport
-// stays put so the user's scroll position is preserved.
-func (o *Output) AppendRun(r RunRecord) {
+// StartRun begins a new in-flight run. It renders the header immediately; the
+// footer appears on FinishRun.
+func (o *Output) StartRun(r RunRecord) {
 	wasAtBottom := o.vp.AtBottom()
 	o.runs = append(o.runs, r)
-	o.vp.SetContent(o.renderAll())
+	o.refresh()
 	if wasAtBottom {
 		o.vp.GotoBottom()
 	}
+}
+
+// AppendLine appends a line to the most recent run (which must be in-flight).
+// If there's no in-flight run, the line is dropped.
+func (o *Output) AppendLine(line string) {
+	if len(o.runs) == 0 {
+		return
+	}
+	last := &o.runs[len(o.runs)-1]
+	if last.Finished {
+		return
+	}
+	wasAtBottom := o.vp.AtBottom()
+	last.Lines = append(last.Lines, line)
+	o.refresh()
+	if wasAtBottom {
+		o.vp.GotoBottom()
+	}
+}
+
+// FinishRun finalizes the most recent in-flight run with its exit code and
+// duration. Writes the footer.
+func (o *Output) FinishRun(exitCode int, duration time.Duration) {
+	if len(o.runs) == 0 {
+		return
+	}
+	last := &o.runs[len(o.runs)-1]
+	if last.Finished {
+		return
+	}
+	wasAtBottom := o.vp.AtBottom()
+	last.ExitCode = exitCode
+	last.Duration = duration
+	last.Finished = true
+	o.refresh()
+	if wasAtBottom {
+		o.vp.GotoBottom()
+	}
+}
+
+// AppendRun adds a fully-finished run in one shot. Kept for cases where we
+// don't need streaming (e.g., synthetic test runs).
+func (o *Output) AppendRun(r RunRecord) {
+	r.Finished = true
+	o.StartRun(r)
 }
 
 // Clear empties the output pane.
@@ -62,29 +107,12 @@ func (o *Output) Clear() {
 	o.vp.GotoTop()
 }
 
-// ScrollUp scrolls the viewport up by n lines. Pauses follow-tail implicitly
-// because it moves YOffset away from the bottom.
-func (o *Output) ScrollUp(n int) {
-	o.vp.ScrollUp(n)
-}
+func (o *Output) ScrollUp(n int)   { o.vp.ScrollUp(n) }
+func (o *Output) ScrollDown(n int) { o.vp.ScrollDown(n) }
+func (o *Output) GotoBottom()      { o.vp.GotoBottom() }
+func (o Output) AtBottom() bool    { return o.vp.AtBottom() }
 
-// ScrollDown scrolls the viewport down by n lines.
-func (o *Output) ScrollDown(n int) {
-	o.vp.ScrollDown(n)
-}
-
-// GotoBottom jumps to the newest run and resumes follow-tail.
-func (o *Output) GotoBottom() {
-	o.vp.GotoBottom()
-}
-
-// AtBottom reports whether the viewport is scrolled to the end.
-func (o Output) AtBottom() bool {
-	return o.vp.AtBottom()
-}
-
-// Update delegates scroll messages to the inner viewport.
-// The model decides which key events to forward.
+// Update delegates to the inner viewport.
 func (o Output) Update(msg tea.Msg) (Output, tea.Cmd) {
 	var cmd tea.Cmd
 	o.vp, cmd = o.vp.Update(msg)
@@ -102,8 +130,8 @@ func (o Output) View() string {
 	return o.vp.View()
 }
 
-// renderAll produces the full viewport content from all runs.
-func (o Output) renderAll() string {
+// refresh re-renders the viewport content from the current runs slice.
+func (o *Output) refresh() {
 	var b strings.Builder
 	for i, r := range o.runs {
 		b.WriteString(renderRun(r))
@@ -111,23 +139,31 @@ func (o Output) renderAll() string {
 			b.WriteString("\n")
 		}
 	}
-	return b.String()
+	o.vp.SetContent(b.String())
 }
 
-// renderRun formats a single run as:
+// renderRun formats one run as:
 //
 //	$ <cmd> <args...>
 //	<body>
-//	[exit N · Xs]
+//	[exit N · Xs]      (only if Finished)
 func renderRun(r RunRecord) string {
 	header := styleRunHeader.Render("$ " + commandLine(r))
-	footer := styleRunFooter.Render(fmt.Sprintf("[exit %d · %s]", r.ExitCode, shortDuration(r.Duration)))
+	body := strings.Join(r.Lines, "\n")
 
-	body := strings.TrimRight(r.Body, "\n")
-	if body == "" {
-		return header + "\n" + footer + "\n"
+	var footer string
+	if r.Finished {
+		footer = styleRunFooter.Render(fmt.Sprintf("[exit %d · %s]", r.ExitCode, shortDuration(r.Duration)))
 	}
-	return header + "\n" + body + "\n" + footer + "\n"
+
+	parts := []string{header}
+	if body != "" {
+		parts = append(parts, body)
+	}
+	if footer != "" {
+		parts = append(parts, footer)
+	}
+	return strings.Join(parts, "\n") + "\n"
 }
 
 func commandLine(r RunRecord) string {
@@ -138,8 +174,6 @@ func commandLine(r RunRecord) string {
 }
 
 // shortDuration formats a duration for the run footer.
-//
-//	0.08s, 2.4s, 1m12s, 1h02m
 func shortDuration(d time.Duration) string {
 	switch {
 	case d < time.Second:
@@ -155,8 +189,6 @@ func shortDuration(d time.Duration) string {
 	}
 }
 
-// run header + footer styles live here rather than in style.go to keep the
-// Output package self-contained.
 var (
 	styleRunHeader = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	styleRunFooter = lipgloss.NewStyle().Foreground(colorDim)

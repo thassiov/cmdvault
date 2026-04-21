@@ -19,6 +19,12 @@ type Model struct {
 
 	picker Picker
 	output Output
+
+	active *activeRun // nil when idle
+
+	// Transient status line override (e.g., "can't run — already running").
+	flash      string
+	flashUntil time.Time
 }
 
 // NewModel constructs the initial dashboard model.
@@ -69,24 +75,57 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.output.GotoBottom()
 			return m, nil
 		}
-		// Everything else → picker (it owns typing + up/down/enter).
+		// Everything else → picker.
 		var cmd tea.Cmd
 		m.picker, cmd = m.picker.Update(msg)
 		return m, cmd
 
 	case RunRequestedMsg:
-		// M2: synthesize a fake run so we can verify the output pane.
-		// M3 will replace this with the real command lifecycle.
-		d := m.commands[msg.Index]
-		fake := RunRecord{
-			Descriptor: d,
-			Args:       d.Args,
-			Body:       syntheticBody(d),
-			StartedAt:  time.Now(),
-			Duration:   142 * time.Millisecond,
-			ExitCode:   0,
+		if m.active != nil {
+			m.setFlash("command already running — ^c to stop first", 2*time.Second)
+			return m, nil
 		}
-		m.output.AppendRun(fake)
+		cmd := m.startRun(msg.Index)
+		return m, cmd
+
+	case outputLineMsg:
+		m.output.AppendLine(msg.line)
+		if m.active != nil {
+			return m, waitForOutput(m.active.cmd)
+		}
+		return m, nil
+
+	case runFinishedMsg:
+		m.output.FinishRun(msg.exitCode, msg.duration)
+		if m.active != nil {
+			logRunToHistory(
+				m.active.cmd.Descriptor,
+				m.active.cmd.Descriptor.Args,
+				m.active.startedAt,
+				msg.duration,
+				msg.exitCode,
+			)
+			m.active = nil
+		}
+		return m, nil
+
+	case runFailedMsg:
+		// Start failure: render a one-shot run record with the error.
+		if m.active == nil {
+			m.output.AppendRun(RunRecord{
+				Descriptor: command.Descriptor{Command: "(error)"},
+				Lines:      []string{msg.err.Error()},
+				ExitCode:   -1,
+			})
+		} else {
+			m.output.AppendLine("error: " + msg.err.Error())
+			m.output.FinishRun(-1, time.Since(m.active.startedAt))
+			m.active = nil
+		}
+		return m, nil
+
+	case runRejectedMsg:
+		m.setFlash(msg.reason, 3*time.Second)
 		return m, nil
 	}
 
@@ -132,15 +171,26 @@ func (m Model) View() string {
 }
 
 func (m Model) statusText() string {
-	// Context-sensitive hints.
+	if m.flash != "" && time.Now().Before(m.flashUntil) {
+		return m.flash
+	}
+	if m.active != nil {
+		elapsed := time.Since(m.active.startedAt).Truncate(time.Second)
+		return fmt.Sprintf("● running %s · %s · ^c stop (M4)", m.active.cmd.Descriptor.Name, elapsed)
+	}
 	follow := " (follow)"
 	if !m.output.AtBottom() {
 		follow = " (paused — ^g to resume)"
 	}
-	return fmt.Sprintf("M2 · ↑↓ pick · ⏎ run · ^u/^d scroll%s · ^k clear · ^c quit", follow)
+	return fmt.Sprintf("M3 · ⏎ run · ^u/^d scroll%s · ^k clear · ^c quit", follow)
 }
 
-// Layout helpers. Keep in sync with View.
+func (m *Model) setFlash(msg string, d time.Duration) {
+	m.flash = msg
+	m.flashUntil = time.Now().Add(d)
+}
+
+// Layout helpers — keep in sync with View.
 func (m Model) pickerHeight() int {
 	inner := m.height - 2
 	h := inner * 30 / 100
@@ -160,20 +210,6 @@ func (m Model) outputHeight() int {
 func (m *Model) resizeChildren() {
 	pickerH := m.pickerHeight()
 	outputH := m.outputHeight()
-	// Picker: width minus border padding (1 each side) and padding (1 each side).
 	m.picker.SetSize(m.width-4, pickerH-2)
-	// Output: width minus horizontal padding (1 each side).
 	m.output.SetSize(m.width-2, outputH)
-}
-
-// syntheticBody produces a plausible fake body so we can test the output pane
-// without plumbing real command execution. Removed in M3.
-func syntheticBody(d command.Descriptor) string {
-	return strings.Join([]string{
-		"[synthetic output for M2 testing]",
-		"descriptor.name: " + d.Name,
-		"descriptor.category: " + d.Category,
-		"descriptor.description: " + d.Description,
-		"(real command execution lands in M3)",
-	}, "\n")
 }
