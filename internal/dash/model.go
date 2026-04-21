@@ -33,6 +33,9 @@ type Model struct {
 
 	// When the user pressed ^c while idle; a second ^c within ~2s quits.
 	quitPendingAt time.Time
+
+	// Help overlay toggle (F1).
+	showHelp bool
 }
 
 // NewModel constructs the initial dashboard model.
@@ -70,9 +73,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m.handleCtrlC()
-		case "esc":
-			// Temporary: Esc quits. Finalized in M6.
-			return m, tea.Quit
+		case "f1":
+			m.showHelp = !m.showHelp
+			return m, nil
 		case "ctrl+k":
 			m.output.Clear()
 			return m, nil
@@ -187,6 +190,15 @@ func (m Model) View() string {
 		return ""
 	}
 
+	// Minimum usable size. Below this we bail out with a prompt to resize.
+	if m.height < 10 || m.width < 40 {
+		return styleTopBar.Width(m.width).Render("cmdvault — terminal too small (min 40×10)")
+	}
+
+	if m.showHelp {
+		return m.renderHelp()
+	}
+
 	outputH := m.outputHeight()
 	pickerH := m.pickerHeight()
 
@@ -210,9 +222,11 @@ func (m Model) View() string {
 		Height(pickerH - 1).
 		Render(paneBody)
 
+	text, fg := m.statusLineParts()
 	status := styleStatusLine.
 		Width(m.width).
-		Render(m.statusText())
+		Foreground(fg).
+		Render(text)
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -223,13 +237,16 @@ func (m Model) View() string {
 	)
 }
 
-func (m Model) statusText() string {
+// statusLineParts returns the text and color for the status line, picked from
+// the current mode (flash / prompting / running / idle).
+func (m Model) statusLineParts() (string, lipgloss.TerminalColor) {
 	if m.flash != "" && time.Now().Before(m.flashUntil) {
-		return m.flash
+		return m.flash, colorWarn
 	}
 	if m.prompting != nil {
-		return fmt.Sprintf("prompt %d/%d · %s · ⏎ confirm · Esc cancel",
+		text := fmt.Sprintf("prompt %d/%d · %s · ⏎ confirm · Esc cancel",
 			m.prompting.current+1, len(m.prompting.placeholders), m.prompting.desc.Name)
+		return text, colorAccent
 	}
 	if m.active != nil {
 		spinner := spinnerFrames[m.spinnerIdx]
@@ -238,14 +255,15 @@ func (m Model) statusText() string {
 		if !m.active.sigintAt.IsZero() && time.Since(m.active.sigintAt) < 2*time.Second {
 			hint = "^c again to force kill"
 		}
-		return fmt.Sprintf("%s  %s · %s · %d lines · %s",
+		text := fmt.Sprintf("%s  %s · %s · %d lines · %s",
 			spinner, m.active.cmd.Descriptor.Name, elapsed, m.active.lineCount, hint)
+		return text, colorAccent
 	}
 	follow := " (follow)"
 	if !m.output.AtBottom() {
 		follow = " (paused — ^g to resume)"
 	}
-	return fmt.Sprintf("⏎ run · ^u/^d scroll%s · ^k clear · ^c quit", follow)
+	return fmt.Sprintf("⏎ run · ^u/^d scroll%s · ^k clear · F1 help · ^c quit", follow), colorMuted
 }
 
 func (m *Model) setFlash(msg string, d time.Duration) {
@@ -286,6 +304,73 @@ func (m Model) handleCtrlC() (tea.Model, tea.Cmd) {
 	m.quitPendingAt = time.Now()
 	m.setFlash("^c again within 2s to quit", 2*time.Second)
 	return m, nil
+}
+
+// renderHelp draws the full-screen help overlay.
+func (m Model) renderHelp() string {
+	title := styleTopBar.Width(m.width).Render("cmdvault — help")
+	footer := styleStatusLine.Width(m.width).Foreground(colorMuted).
+		Render("F1 to close")
+
+	sections := []struct {
+		name  string
+		keys  [][2]string
+	}{
+		{"Picker", [][2]string{
+			{"type", "filter commands"},
+			{"↑ ↓ / ^p ^n", "move cursor"},
+			{"PgUp PgDn", "page"},
+			{"Home End", "first / last"},
+			{"Enter", "run / confirm"},
+			{"Esc", "clear search"},
+		}},
+		{"Output", [][2]string{
+			{"^u ^d", "half-page up / down"},
+			{"^b ^f", "full-page up / down"},
+			{"^g", "jump to bottom, resume follow"},
+			{"^k", "clear all output"},
+		}},
+		{"Run", [][2]string{
+			{"^c (running)", "SIGINT; again within 2s to SIGKILL"},
+			{"^c (idle)", "quit (confirm if runs exist)"},
+		}},
+		{"Prompts (placeholders)", [][2]string{
+			{"type", "filter / enter text"},
+			{"/ ~ (file picker)", "switch root (leading char)"},
+			{"↑ ↓", "move cursor in list"},
+			{"Enter", "confirm value"},
+			{"Esc", "cancel whole prompt chain"},
+		}},
+		{"Global", [][2]string{
+			{"F1", "toggle this help"},
+		}},
+	}
+
+	headerStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	keyStyle := lipgloss.NewStyle().Foreground(colorOK)
+
+	var body strings.Builder
+	for _, sec := range sections {
+		body.WriteString(headerStyle.Render(sec.name))
+		body.WriteString("\n")
+		for _, kv := range sec.keys {
+			body.WriteString(fmt.Sprintf("  %-20s  %s\n", keyStyle.Render(kv[0]), kv[1]))
+		}
+		body.WriteString("\n")
+	}
+
+	// Pad/trim body to fill the space between title and footer.
+	inner := m.height - 2
+	lines := strings.Split(body.String(), "\n")
+	if len(lines) > inner {
+		lines = lines[:inner]
+	}
+	for len(lines) < inner {
+		lines = append(lines, "")
+	}
+	content := strings.Join(lines, "\n")
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, content, footer)
 }
 
 // formatElapsed renders elapsed time as MM:SS (or HH:MM:SS past an hour).

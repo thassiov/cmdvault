@@ -8,6 +8,9 @@ var (
 	colorDim    = lipgloss.Color("240")
 	colorMuted  = lipgloss.Color("244")
 	colorBg     = lipgloss.Color("235")
+	colorWarn   = lipgloss.Color("#e0af68") // yellow
+	colorErr    = lipgloss.Color("#f7768e") // red
+	colorOK     = lipgloss.Color("#9ece6a") // green
 
 	styleTopBar = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")).

@@ -96,6 +96,13 @@ func (p Picker) Update(msg tea.Msg) (Picker, tea.Cmd) {
 			p.cursor = len(p.filtered) - 1
 			p.ensureVisible()
 			return p, nil
+		case "esc":
+			// Clear the search if there's text; otherwise no-op. Quit is ^c.
+			if p.input.Value() != "" {
+				p.input.SetValue("")
+				p.applyFilter()
+			}
+			return p, nil
 		case "enter":
 			if _, idx, ok := p.Selected(); ok {
 				return p, func() tea.Msg { return RunRequestedMsg{Index: idx} }

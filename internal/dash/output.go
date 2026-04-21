@@ -24,10 +24,15 @@ type RunRecord struct {
 	Finished   bool
 }
 
+// maxOutputLines caps the output buffer. When exceeded, oldest runs are
+// dropped whole until under the cap.
+const maxOutputLines = 10000
+
 // Output is the scrollable run buffer.
 type Output struct {
-	vp   viewport.Model
-	runs []RunRecord
+	vp         viewport.Model
+	runs       []RunRecord
+	totalLines int
 }
 
 // NewOutput constructs an empty Output pane.
@@ -67,6 +72,8 @@ func (o *Output) AppendLine(line string) {
 	}
 	wasAtBottom := o.vp.AtBottom()
 	last.Lines = append(last.Lines, line)
+	o.totalLines++
+	o.enforceCap()
 	o.refresh()
 	if wasAtBottom {
 		o.vp.GotoBottom()
@@ -103,8 +110,19 @@ func (o *Output) AppendRun(r RunRecord) {
 // Clear empties the output pane.
 func (o *Output) Clear() {
 	o.runs = o.runs[:0]
+	o.totalLines = 0
 	o.vp.SetContent("")
 	o.vp.GotoTop()
+}
+
+// enforceCap drops oldest runs whole while the total line count exceeds
+// the cap. Never drops the most recent run (so the currently-streaming
+// run isn't pulled out from under its active writer).
+func (o *Output) enforceCap() {
+	for o.totalLines > maxOutputLines && len(o.runs) > 1 {
+		o.totalLines -= len(o.runs[0].Lines)
+		o.runs = o.runs[1:]
+	}
 }
 
 func (o *Output) ScrollUp(n int)   { o.vp.ScrollUp(n) }
