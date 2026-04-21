@@ -17,6 +17,8 @@ import (
 type activeRun struct {
 	cmd       *command.Command
 	startedAt time.Time
+	lineCount int
+	sigintAt  time.Time // zero until the user has sent a SIGINT
 }
 
 // Bubbletea messages for the run lifecycle.
@@ -36,7 +38,18 @@ type (
 	runRejectedMsg struct {
 		reason string
 	}
+	// tickMsg fires periodically while a run is active, so the status
+	// line elapsed/spinner can redraw even when there's no output.
+	tickMsg time.Time
 )
+
+// tickEvery schedules a tickMsg after the given interval.
+func tickEvery(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+// spinnerFrames are the braille spinner frames advanced on each tick.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // startRun launches the command at the given index. Returns the next tea.Cmd
 // that begins draining the command's output channel, or a rejection.
@@ -67,7 +80,7 @@ func (m *Model) startRun(idx int) tea.Cmd {
 		StartedAt:  m.active.startedAt,
 	})
 
-	return waitForOutput(cmd)
+	return tea.Batch(waitForOutput(cmd), tickEvery(100*time.Millisecond))
 }
 
 // waitForOutput reads one message from the command's output channel and

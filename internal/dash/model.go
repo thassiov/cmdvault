@@ -25,6 +25,12 @@ type Model struct {
 	// Transient status line override (e.g., "can't run — already running").
 	flash      string
 	flashUntil time.Time
+
+	// Spinner frame advanced on each tickMsg.
+	spinnerIdx int
+
+	// When the user pressed ^c while idle; a second ^c within ~2s quits.
+	quitPendingAt time.Time
 }
 
 // NewModel constructs the initial dashboard model.
@@ -52,7 +58,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			return m, tea.Quit
+			return m.handleCtrlC()
 		case "esc":
 			// Temporary: Esc quits. Finalized in M6.
 			return m, tea.Quit
@@ -91,9 +97,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case outputLineMsg:
 		m.output.AppendLine(msg.line)
 		if m.active != nil {
+			m.active.lineCount++
 			return m, waitForOutput(m.active.cmd)
 		}
 		return m, nil
+
+	case tickMsg:
+		if m.active == nil {
+			return m, nil
+		}
+		m.spinnerIdx = (m.spinnerIdx + 1) % len(spinnerFrames)
+		return m, tickEvery(100 * time.Millisecond)
 
 	case runFinishedMsg:
 		m.output.FinishRun(msg.exitCode, msg.duration)
@@ -175,19 +189,72 @@ func (m Model) statusText() string {
 		return m.flash
 	}
 	if m.active != nil {
-		elapsed := time.Since(m.active.startedAt).Truncate(time.Second)
-		return fmt.Sprintf("● running %s · %s · ^c stop (M4)", m.active.cmd.Descriptor.Name, elapsed)
+		spinner := spinnerFrames[m.spinnerIdx]
+		elapsed := formatElapsed(time.Since(m.active.startedAt))
+		hint := "^c stop"
+		if !m.active.sigintAt.IsZero() && time.Since(m.active.sigintAt) < 2*time.Second {
+			hint = "^c again to force kill"
+		}
+		return fmt.Sprintf("%s  %s · %s · %d lines · %s",
+			spinner, m.active.cmd.Descriptor.Name, elapsed, m.active.lineCount, hint)
 	}
 	follow := " (follow)"
 	if !m.output.AtBottom() {
 		follow = " (paused — ^g to resume)"
 	}
-	return fmt.Sprintf("M3 · ⏎ run · ^u/^d scroll%s · ^k clear · ^c quit", follow)
+	return fmt.Sprintf("⏎ run · ^u/^d scroll%s · ^k clear · ^c quit", follow)
 }
 
 func (m *Model) setFlash(msg string, d time.Duration) {
 	m.flash = msg
 	m.flashUntil = time.Now().Add(d)
+}
+
+// handleCtrlC implements the three-way ^c behavior:
+//   - run in flight: first ^c → SIGINT, second within 2s → SIGKILL
+//   - idle, no runs yet: quit
+//   - idle, runs exist: first ^c arms quit, second within 2s actually quits
+func (m Model) handleCtrlC() (tea.Model, tea.Cmd) {
+	if m.active != nil {
+		if m.active.sigintAt.IsZero() || time.Since(m.active.sigintAt) > 2*time.Second {
+			if err := m.active.cmd.Stop(); err != nil {
+				m.setFlash("stop failed: "+err.Error(), 2*time.Second)
+				return m, nil
+			}
+			m.active.sigintAt = time.Now()
+			m.setFlash("SIGINT sent · ^c again within 2s to force kill", 2*time.Second)
+			return m, nil
+		}
+		if err := m.active.cmd.Kill(); err != nil {
+			m.setFlash("kill failed: "+err.Error(), 2*time.Second)
+			return m, nil
+		}
+		m.setFlash("SIGKILL sent", 2*time.Second)
+		return m, nil
+	}
+
+	// Idle.
+	if len(m.output.runs) == 0 {
+		return m, tea.Quit
+	}
+	if !m.quitPendingAt.IsZero() && time.Since(m.quitPendingAt) < 2*time.Second {
+		return m, tea.Quit
+	}
+	m.quitPendingAt = time.Now()
+	m.setFlash("^c again within 2s to quit", 2*time.Second)
+	return m, nil
+}
+
+// formatElapsed renders elapsed time as MM:SS (or HH:MM:SS past an hour).
+func formatElapsed(d time.Duration) string {
+	d = d.Truncate(time.Second)
+	h := int(d / time.Hour)
+	m := int(d/time.Minute) % 60
+	s := int(d/time.Second) % 60
+	if h > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
 }
 
 // Layout helpers — keep in sync with View.
